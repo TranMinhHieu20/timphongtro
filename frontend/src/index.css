@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --font-main: 'Outfit', sans-serif;
+}
+
+body {
+  font-family: var(--font-main);
+  @apply bg-slate-950 text-slate-50 antialiased;
+}
+
+/* Custom scrollbar using Tailwind's standard approach */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-950;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
+  }
+}
