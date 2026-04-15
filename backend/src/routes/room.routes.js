@@ -2,6 +2,7 @@ import express from "express";
 import { getAllRooms, getRoomById, importZaloRoom, searchRooms, importExcelRooms, updateRoomStatus, updateRoom, deleteRoom } from "../controllers/room.controller.js";
 import protectRoute from "../middlewares/authProtect.js";
 import isAdmin from "../middlewares/isAdmin.js";
+import optionalProtect from "../middlewares/optionalProtect.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -10,9 +11,9 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.get("/", getAllRooms);
-router.get("/search", searchRooms);
-router.get("/:id", getRoomById);
+router.get("/", optionalProtect, getAllRooms);
+router.get("/search", optionalProtect, searchRooms);
+router.get("/:id", optionalProtect, getRoomById);
 
 // Import route (Admin only)
 // For Zalo text + images (multiple images)

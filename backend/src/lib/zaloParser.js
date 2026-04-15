@@ -1,167 +1,192 @@
 /**
- * Utility to parse Zalo room rental text format into a Room object
- * @param {string} text 
- * @returns {Object} Parsed room data
+ * Zalo Room Text Parser — Simplified Schema v2
+ *
+ * Supported Zalo format:
+ *   🌹30%-12th.  Mã: TM292
+ *   🏡 Địa chỉ: ngõ 255 Nguyễn Văn Trỗi, Hà Đông, HN
+ *   ⏰Trống
+ *   __________________
+ *   💸Giá 4tr3 - P203
+ *   👉Thang Máy
+ *   ✅ Nội thất: như hình
+ *   ✅ Dịch vụ: Điện 4000/số. Nước 35k/m3...
+ *   ⛔️Lưu ý:
+ *   - Đóng 1 cọc 1
+ *   - Liên hệ 30p-1h trước khi qua
+ *   SĐT: 0912345678
+ *
+ * Returns fields matching the Room schema.
  */
 export const parseZaloText = (text) => {
     const lines = text.split("\n").map(l => l.trim()).filter(l => l !== "");
-    
+
     const result = {
-        code: "",
-        commission: "",
-        address: "",
-        price: 0,
-        description: "",
-        amenities: [],
-        services: {
-            electricity: "",
-            water: "",
-            serviceFee: "",
-            internet: ""
-        },
-        notes: [],
-        roomNumber: "",
+        // Public
+        address:      "",
+        price:        0,
+        roomNumber:   "",
         availability: "",
-        contactPhone: ""
+        status:       "available",   // mapped from ⏰ text
+        description:  "",
+        notes:        [],
+
+        // Admin-only
+        code:           "",
+        commissionRaw:  "",
+        commissionRate: 0,
+        ownerInfo: { name: "", phone: "" }
     };
 
-    let currentSection = "";
+    let inNotes = false;
+    const descLines = [];
 
-    lines.forEach(line => {
-        // 1. Parse Mã and Commission (example: "Mã: TM016.🌹 1 triệu")
-        if (line.match(/^Mã:?/i)) {
-            const parts = line.split(/[.:]/);
-            result.code = (parts[1] || "").replace(/🌹/g, "").trim();
-            // If there's a third part or if commission is in the same line
+    for (const line of lines) {
+        // Skip visual separator lines (_____, -----)
+        if (/^[_\-=]{3,}$/.test(line)) continue;
+
+        // ── 1. Mã phòng + Hoa hồng ─────────────────────────────────────────
+        //   Format: "🌹30%-12th.  Mã: TM292"
+        if (line.match(/Mã\s*:/i)) {
             if (line.includes("🌹")) {
-                result.commission = line.split("🌹")[1]?.trim() || "";
+                result.commissionRaw = line
+                    .split("🌹")[1]
+                    ?.split(/Mã\s*:/i)[0]
+                    ?.replace(/[.\s]+$/, "")  // strip trailing dot/space
+                    .trim() || "";
+
+                // Extract numeric rate: "30%-12th" → 30
+                const rateMatch = result.commissionRaw.match(/(\d+(?:\.\d+)?)\s*%/);
+                result.commissionRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
             }
+            // Code: first clean token after "Mã:"
+            const afterMa = line.replace(/.*Mã\s*:/i, "").trim();
+            result.code = afterMa.split(/[\s,./]+/)[0].trim();
+            continue;
         }
-        
-        // 2. Parse Address (example: "🏠 Địa chỉ: Số 12 ngõ 45 Cầu Giấy")
-        else if (line.match(/🏠\s*Địa chỉ:?/i) || line.startsWith("Địa chỉ:")) {
-            result.address = line.replace(/.*Địa chỉ:?/i, "").trim();
+
+        // ── 2. Địa chỉ (🏡 / 🏠 / plain "Địa chỉ:") ──────────────────────
+        if (line.match(/(🏡|🏠)\s*Địa\s*chỉ\s*:/i) || line.match(/^Địa\s*chỉ\s*:/i)) {
+            result.address = line.replace(/.*Địa\s*chỉ\s*:/i, "").trim();
+            continue;
         }
-        
-        // 3. Parse Price (example: "💰 Giá: 3tr5", "💰 Giá: 4.000.000")
-        else if (line.match(/💰\s*Giá:?/i) || line.startsWith("Giá:")) {
-            const priceStr = line.replace(/.*Giá:?/i, "").trim();
-            result.price = parsePriceValue(priceStr);
-            // Append to description for context if needed
-            result.description += `Giá thuê: ${priceStr}\n`;
+
+        // ── 3. Trạng thái / Vào ở (⏰Trống / ⏰ Sắp trống) ─────────────────
+        if (line.match(/^⏰/)) {
+            const text = line.replace(/^⏰\s*/, "").trim();
+            result.availability = text;
+            result.status = mapStatusText(text);
+            continue;
         }
-        
-        // 4. Parse Amenities/Furniture (example: "✅ Nội thất: Điều hoà, nóng lạnh, giường, tủ")
-        else if (line.match(/✅\s*Nội thất:?/i)) {
-            const items = line.replace(/.*Nội thất:?/i, "").trim().split(/[,;]/);
-            result.amenities = items.map(i => i.trim()).filter(i => i !== "");
+        if (line.match(/^(Vào\s*ở|Trạng\s*thái)\s*:/i)) {
+            const text = line.replace(/^(Vào\s*ở|Trạng\s*thái)\s*:/i, "").trim();
+            result.availability = text;
+            result.status = mapStatusText(text);
+            continue;
         }
-        
-        // 5. Section Headers for Services and Notes
-        else if (line.match(/✅\s*Dịch vụ:?/i)) {
-            currentSection = "services";
-        }
-        else if (line.match(/⚠️\s*Lưu ý:?/i)) {
-            currentSection = "notes";
-        }
-        
-        // 5b. Parse Room Number (example: "Phòng: P404")
-        else if (line.match(/^Phòng:?/i)) {
-            result.roomNumber = line.replace(/^Phòng:?/i, "").trim();
-        }
-        
-        // 5c. Parse Availability/Status (example: "Vào ở: Vào ở luôn", "Trạng thái: Cuối tháng")
-        else if (line.match(/^(Vào ở|Trạng thái):?/i)) {
-            result.availability = line.replace(/^(Vào ở|Trạng thái):?/i, "").trim();
-        }
-        
-        // 5d. Parse Phone Number (example: "SĐT: 0912345678", "Liên hệ: 0912.345.678")
-        else if (line.match(/^(SĐT|Liên hệ|Phone|đt):?/i)) {
-            const phone = line.replace(/^(SĐT|Liên hệ|Phone|đt):?/i, "").replace(/[^0-9]/g, "").trim();
-            if (phone.length >= 10) result.contactPhone = phone;
-        }
-        
-        // 6. Parsing items under sections
-        else if (currentSection === "services") {
-            const lowerLine = line.toLowerCase();
-            if (lowerLine.includes("điện")) result.services.electricity = line.replace(/^-/,"").trim();
-            else if (lowerLine.includes("nước")) result.services.water = line.replace(/^-/,"").trim();
-            else if (lowerLine.includes("dịch vụ chung") || lowerLine.includes("dv chung") || lowerLine.includes("phí")) result.services.serviceFee = line.replace(/^-/,"").trim();
-            else if (lowerLine.includes("mạng") || lowerLine.includes("internet") || lowerLine.includes("wifi")) result.services.internet = line.replace(/^-/,"").trim();
-            else if (line.startsWith("-")) {
-                // If it's a generic service not matched above, add to description
-                result.description += `Dịch vụ: ${line.replace(/^-/,"").trim()}\n`;
+
+        // ── 4. Giá + Số phòng (💸Giá 4tr3 - P203 / 💰 Giá: 4tr3) ──────────
+        if (line.match(/(💸|💰)\s*Giá/i) || line.match(/^Giá\s*:/i)) {
+            const cleaned = line
+                .replace(/(💸|💰)\s*Giá\s*:?\s*/i, "")
+                .replace(/^Giá\s*:\s*/i, "")
+                .trim();
+
+            const dashParts = cleaned.split(/\s*[-–]\s*/);
+            result.price = parsePriceValue(dashParts[0]);
+
+            if (dashParts[1] && /^[Pp]\d+|Phòng/i.test(dashParts[1].trim())) {
+                result.roomNumber = dashParts[1].trim();
+            } else if (dashParts[1]) {
+                descLines.push(dashParts[1].trim());
             }
+            continue;
         }
-        else if (currentSection === "notes") {
-            if (line.startsWith("-") || line.match(/^\d+\./)) {
+
+        // ── 5. Số phòng standalone ────────────────────────────────────────
+        if (line.match(/^Phòng\s*:/i)) {
+            result.roomNumber = line.replace(/^Phòng\s*:/i, "").trim();
+            continue;
+        }
+
+        // ── 6. SĐT Chủ / Liên hệ ─────────────────────────────────────────
+        if (line.match(/^(SĐT|Liên\s*hệ|Phone|đt|Tel)\s*:/i)) {
+            const phone = line
+                .replace(/^(SĐT|Liên\s*hệ|Phone|đt|Tel)\s*:/i, "")
+                .replace(/[^0-9]/g, "")
+                .trim();
+            if (phone.length >= 10) result.ownerInfo.phone = phone;
+            continue;
+        }
+
+        // ── 7. Lưu ý header (⛔️ / ⚠️ / ❗) ───────────────────────────────
+        if (line.match(/(⛔️?|⚠️?|❗)\s*Lưu\s*ý\s*:?/iu) || line.match(/^Lưu\s*ý\s*:/i)) {
+            inNotes = true;
+            continue;
+        }
+
+        // ── 8. Nội dung Lưu ý ────────────────────────────────────────────
+        if (inNotes) {
+            if (line.startsWith("-") || /^\d+\./.test(line)) {
                 result.notes.push(line.replace(/^-|^\d+\./, "").trim());
+            } else if (line.length > 2) {
+                result.notes.push(line);
             }
+            continue;
         }
-        
-        // 7. General Description lines (those starting with - but not in sections)
-        else if (line.startsWith("-") && currentSection === "") {
-            result.description += line.replace(/^-/,"").trim() + "\n";
-        }
-        
-        // 8. Catch-all for lines that don't match but might be important description
-        else if (!line.match(/^[✅💰🏠⚠️Mã]/i) && currentSection === "") {
-            // If it's not a header and we aren't in a section, it's probably address or desc
-            if (!result.address && line.length > 10 && !line.includes(":")) {
-                result.address = line; 
-            } else {
-                result.description += line + "\n";
-            }
-        }
-    });
 
-    // Final cleanups
-    result.description = result.description.trim();
-    result.cashbackAmount = Math.round(result.price * 0.09);
+        // ── 9. Tất cả còn lại → Mô tả ─────────────────────────────────────
+        //   Nội thất (✅), tiện ích (👉), dịch vụ (✅), v.v.
+        const cleaned = line
+            .replace(/^(✅|👉|💡|🔑|🚗|🏋️|📦|⭐|🌟)\s*/u, "")
+            .trim();
+        if (cleaned) descLines.push(cleaned);
+    }
 
+    result.description = descLines.filter(l => l).join("\n").trim();
     return result;
 };
 
 /**
- * Helper to parse Vietnamese price strings like "3tr5", "4.000.000", "4,5tr"
- * @param {string} str 
- * @returns {number}
+ * Map availability text to status enum
+ */
+function mapStatusText(text) {
+    const t = text.toLowerCase();
+    if (t.includes("đã thuê") || t.includes("hết phòng") || t.includes("rented")) return "rented";
+    if (t.includes("sắp trống") || t.includes("sắp") || t.includes("coming")) return "coming-soon";
+    return "available"; // "Trống", "Vào ở luôn", "Cuối tháng", etc.
+}
+
+/**
+ * Parse Vietnamese price strings → number (VNĐ)
+ * Supports: "4tr3", "3.5tr", "4,5tr", "4.000.000", "3 triệu", "3tr"
  */
 export function parsePriceValue(str) {
     if (str === null || str === undefined) return 0;
-    if (typeof str === 'number') return str;
-    
-    // Remove dots and commas used as thousand separators (e.g. 4.000.000 -> 4000000)
-    // But be careful with 4,5tr where comma is a decimal point
-    let cleanStr = String(str).toLowerCase().replace(/\s+/g, "");
-    
-    // Handle "tr" format (e.g. 3tr5, 4.5tr, 3tr)
-    const trMatch = cleanStr.match(/(\d+)([.,]\d+)?tr(\d+)?/);
+    if (typeof str === "number") return str;
+
+    let s = String(str).toLowerCase().trim().replace(/\s+/g, "");
+
+    // "3tr5", "4tr3", "3tr", "4.5tr", "4,5tr"
+    const trMatch = s.match(/^(\d+)([.,]\d+)?tr(\d+)?/);
     if (trMatch) {
-        let major = parseInt(trMatch[1]) * 1000000;
-        let minor = 0;
-        
+        let val = parseInt(trMatch[1]) * 1_000_000;
         if (trMatch[2]) {
-            // Handle decimal like 4.5tr
-            minor = parseFloat(trMatch[2].replace(",", ".")) * 1000000;
-            return major + minor; // wait, major is already included in float if we do 4.5
+            // 4.5tr → 4,500,000
+            val = parseFloat(trMatch[1] + trMatch[2].replace(",", ".")) * 1_000_000;
+        } else if (trMatch[3]) {
+            // 4tr3 → 4,300,000
+            val += parseInt(trMatch[3]) * (trMatch[3].length === 1 ? 100_000 : 10_000);
         }
-        
-        // Handle 3tr5 where 5 means 500k
-        if (trMatch[3]) {
-            minor = parseInt(trMatch[3]) * (trMatch[3].length === 1 ? 100000 : 10000);
-        }
-        
-        return major + minor;
-    }
-    
-    // Handle "triệu" format
-    if (cleanStr.includes("triệu")) {
-        const value = parseFloat(cleanStr.replace("triệu", "").replace(",", "."));
-        return value * 1000000;
+        return Math.round(val);
     }
 
-    // Default numeric parse (remove non-digits except dots/commas)
-    const numericOnly = cleanStr.replace(/[^0-9]/g, "");
-    return parseInt(numericOnly) || 0;
+    // "3 triệu", "3.5 triệu"
+    if (s.includes("triệu")) {
+        const v = parseFloat(s.replace("triệu", "").replace(",", "."));
+        return Math.round(v * 1_000_000);
+    }
+
+    // Plain number: "4000000", "4.000.000"
+    const numOnly = s.replace(/[^0-9]/g, "");
+    return parseInt(numOnly) || 0;
 }
