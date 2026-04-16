@@ -1,120 +1,97 @@
 import mongoose from "mongoose";
 
 const RoomSchema = new mongoose.Schema({
-
-    // ════════════════════════════════════════════════════════════
-    // A. THÔNG TIN CÔNG KHAI (User thấy trên Website/Mobile)
-    // ════════════════════════════════════════════════════════════
-
-    /** Mã phòng hiển thị — duy nhất, dễ nhớ (e.g. "PM-232", "KD-312")
-     *  Dùng để user/khách giao tiếp với môi giới thay cho mã nội bộ.
-     *  Tự động sinh khi tạo phòng.
-     */
+    // ══════════════════════════════════════════════════════
+    // A. THÔNG TIN CÔNG KHAI (User thấy)
+    // ══════════════════════════════════════════════════════
     displayId: {
         type: String,
+        required: true,
         unique: true,
-        sparse: true
+        index: true
     },
-
-    /** Giá thuê thực tế / tháng (VNĐ) */
     price: {
         type: Number,
         required: true
     },
-
-    /** Địa chỉ — chỉ hiển thị đến cấp Ngõ/Ngách để bảo mật nguồn hàng */
     address: {
-        type: String,
+        type: String, // Chỉ hiển thị Ngõ/Ngách/Quận
         required: true
     },
-
-    /** Mô tả: nội thất, diện tích, tầng, loại thang (bộ/máy), v.v. (freeform) */
-    description: {
-        type: String,
-        default: ""
-    },
-
-    /** Lưu ý: quy định đóng tiền, cọc, giờ giấc, PCCC */
-    notes: {
-        type: [String],
-        default: []
-    },
-
-    /** Tiền hoàn trả khi ký HĐ thành công — điểm mấu chốt hút khách (9% giá phòng) */
     cashbackAmount: {
         type: Number,
-        required: true,
         default: 0
     },
-
-    /** Trạng thái phòng */
     status: {
         type: String,
         enum: ["available", "rented", "coming-soon"],
         default: "available"
-        // Trống / Đã thuê / Sắp trống
+    },
+    availability: String, // Text tự do: "Trống ngay", "Mùng 10 trống"
+    description: String,
+    notes: [String],
+    images: [String],
+    roomNumber: String,
+    district: String,
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number], // [lng, lat]
+            default: [105.8342, 21.0278] // Mặc định Hà Nội
+        }
     },
 
-    /** Chi tiết ngày vào ở (e.g. "Vào ở luôn", "Cuối tháng") */
-    availability: {
-        type: String,
-        default: ""
-    },
-
-    /** Số phòng (e.g. "P203") */
-    roomNumber: {
-        type: String,
-        default: ""
-    },
-
-    /** Hình ảnh thực tế (Cloudinary URLs) */
-    images: {
-        type: [String],
-        default: []
-    },
-
-
-    // ════════════════════════════════════════════════════════════
-    // B. THÔNG TIN NỘI BỘ (Chỉ Admin/Môi giới thấy)
-    // ════════════════════════════════════════════════════════════
-
-    /** Mã gốc từ nhóm nguồn (e.g. "TM099") — có thể trùng giữa các nguồn */
+    // ══════════════════════════════════════════════════════
+    // B. THÔNG TIN BẢO MẬT (Chỉ Admin thấy)
+    // ══════════════════════════════════════════════════════
     code: {
-        type: String,
-        required: true,
+        type: String, // Mã gốc từ Zalo (có thể trùng)
+        required: true
     },
-
-    /** % Hoa hồng dạng text gốc (e.g. "30%-12th", "50%") */
-    commissionRaw: {
-        type: String,
-        default: ""
-    },
-
-    /** % Hoa hồng dạng số (e.g. 30 → 30%) */
     commissionRate: {
-        type: Number,
+        type: Number, // % ví dụ: 50
         default: 0
     },
-
-    /** Tổng hoa hồng (VNĐ) = price × commissionRate / 100  [tự tính] */
     totalCommission: {
-        type: Number,
+        type: Number, // Tự động tính = Price * Rate / 100
         default: 0
     },
-
-    /** Lợi nhuận thực tế = totalCommission − cashbackAmount  [tự tính] */
     netProfit: {
-        type: Number,
+        type: Number, // Lợi nhuận ròng = TotalCommission - CashbackAmount
         default: 0
     },
-
-    /** Thông tin đầu chủ để liên hệ dẫn khách */
+    commissionRaw: String, // Text gốc từ parser (e.g. "50%-12th")
     ownerInfo: {
-        name:  { type: String, default: "" },
-        phone: { type: String, default: "" }
+        name: String,
+        phone: String
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
+}, { timestamps: true });
+
+// Tự động tính toán tài chính trước khi lưu
+RoomSchema.pre("save", async function() {
+    // 1. Tự động tính Tiền hoàn khách = 9% Giá phòng (Nếu chưa có)
+    if (this.price && (!this.cashbackAmount || this.cashbackAmount === 0)) {
+        this.cashbackAmount = Math.round(this.price * 0.09);
     }
 
-}, { timestamps: true });
+    // 2. Tính tổng hoa hồng
+    if (this.price && this.commissionRate) {
+        this.totalCommission = (this.price * this.commissionRate) / 100;
+    }
+    
+    // 3. Tính lợi nhuận ròng (Lãi)
+    this.netProfit = (this.totalCommission || 0) - (this.cashbackAmount || 0);
+});
+
+RoomSchema.index({ location: "2dsphere" });
 
 const Room = mongoose.model("Room", RoomSchema);
 export default Room;

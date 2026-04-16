@@ -8,7 +8,7 @@ const api = axios.create({
 });
 
 export const roomService = {
-    getAll: () => api.get("/rooms"),
+    getAll: (params) => api.get("/rooms", { params }),
     getById: (id) => api.get(`/rooms/${id}`),
     search: (query) => api.get(`/rooms/search?query=${query}`),
     importZalo: (formData) => api.post("/rooms/import", formData, {
@@ -30,6 +30,8 @@ export const leadService = {
     getPendingCount: () => api.get('/leads/admin/count'),
     updateStatus: (id, status, note) => api.patch(`/leads/admin/${id}/status`, { status, note }),
     delete: (id) => api.delete(`/leads/admin/${id}`),
+    getSuccessStories: () => api.get('/leads/success-stories'),
+    getStats: () => api.get('/leads/stats'),
 };
 
 export const userService = {
@@ -39,6 +41,14 @@ export const userService = {
     changePassword: (data) => api.put('/users/change-password', data),
 };
 
+
+export const chatService = {
+    sendMessage: (data) => api.post('/chat/send', data),
+    getMessages: (otherUserId) => api.get(`/chat/messages/${otherUserId}`),
+    getUnreadTotal: () => api.get('/chat/unread-total'),
+    getConversations: () => api.get('/chat/conversations'),
+    searchUsers: (query) => api.get(`/chat/search-users?query=${query}`),
+};
 
 export const authService = {
     signup: (data) => api.post("/auth/register", data),

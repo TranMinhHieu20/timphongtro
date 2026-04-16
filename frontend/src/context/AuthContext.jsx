@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/api';
+import { io } from 'socket.io-client';
 
 const AuthContext = createContext();
 
@@ -23,6 +24,22 @@ export const AuthProvider = ({ children }) => {
         };
         checkAuth();
     }, []);
+
+    // Socket listener for realtime profile/favorite updates
+    useEffect(() => {
+        if (user?._id) {
+            const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
+            const socket = io(socketUrl, {
+                query: { userId: user._id }
+            });
+
+            socket.on('favoriteUpdate', (newFavorites) => {
+                setUser(prev => prev ? { ...prev, favorites: newFavorites } : null);
+            });
+
+            return () => socket.disconnect();
+        }
+    }, [user?._id]);
 
     const login = async (credentials) => {
         const res = await authService.login(credentials);

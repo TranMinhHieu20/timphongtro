@@ -1,15 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, LayoutGrid, Bell, PlusCircle, X, ChevronRight, Home } from 'lucide-react';
+import { ShieldCheck, LayoutGrid, Bell, PlusCircle, X, ChevronRight, Home, MessageSquare } from 'lucide-react';
+import { chatService, leadService } from '../services/api';
+import { io } from 'socket.io-client';
+import { useAuth } from '../context/AuthContext';
 
 const AdminSidebar = ({ isOpen, onClose }) => {
+  const { user: currentUser } = useAuth();
   const location = useLocation();
+  const [unreadCounts, setUnreadCounts] = useState({
+    leads: 0,
+    chat: 0
+  });
+
+  const fetchCounts = async () => {
+    try {
+      const [leadRes, chatRes] = await Promise.all([
+        leadService.getPendingCount(),
+        chatService.getUnreadTotal()
+      ]);
+      setUnreadCounts({
+        leads: leadRes.data.count,
+        chat: chatRes.data.count
+      });
+    } catch (err) {
+      console.error("Error fetching sidebar counts:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Initial fetch
+    fetchCounts();
+
+    // Socket listeners
+    const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
+    const socket = io(socketUrl, {
+      query: { userId: currentUser._id }
+    });
+
+    // Cập nhật số lượng thông tin khi có lead mới hoặc trạng thái thay đổi
+    socket.on('leadCountUpdate', () => {
+      fetchCounts();
+    });
+
+    // Cập nhật khi có tin nhắn mới hoặc khi tin nhắn đã được đọc
+    socket.on('newMessage', () => {
+      fetchCounts();
+    });
+
+    socket.on('unreadCountUpdate', () => {
+      fetchCounts();
+    });
+
+    return () => socket.disconnect();
+  }, [currentUser]);
 
   const menuItems = [
+    { name: 'Trang chủ', path: '/', icon: LayoutGrid },
     { name: 'Đăng phòng mới', path: '/admin/import', icon: PlusCircle },
     { name: 'Quản lý phòng', path: '/admin/rooms', icon: LayoutGrid },
-    { name: 'Yêu cầu khách', path: '/admin/leads', icon: Bell },
+    { name: 'Yêu cầu khách', path: '/admin/leads', icon: Bell, badge: unreadCounts.leads },
+    { name: 'Tin nhắn', path: '/admin/chat', icon: MessageSquare, badge: unreadCounts.chat },
   ];
 
   const sidebarContent = (
@@ -57,6 +111,17 @@ const AdminSidebar = ({ isOpen, onClose }) => {
                 <item.icon size={20} />
               </div>
               <span className="text-sm font-black uppercase tracking-tight">{item.name}</span>
+              
+              {/* Badge Rendering */}
+              {item.badge > 0 && (
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="ml-2 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-black rounded-lg shadow-lg shadow-emerald-500/20"
+                >
+                  {item.badge}
+                </motion.span>
+              )}
             </div>
             <ChevronRight size={16} className={`transition-transform duration-300 ${location.pathname === item.path ? 'translate-x-0' : '-translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0'}`} />
           </NavLink>

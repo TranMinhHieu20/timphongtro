@@ -21,6 +21,10 @@ export const registerUser = async (req, res)=>{
         
         await newUser.save()
         generateToken(newUser._id, res)
+
+        // Broadcast New User to everyone for Social Proof
+        const { io } = await import('../server.js');
+        io.emit('newUserRegistered', { username: newUser.username });
         
         res.status(201).json({message: "User registered successfully", user: {
             _id: newUser._id,

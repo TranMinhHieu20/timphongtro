@@ -1,25 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { leadService } from '../services/api';
-import { Clock, Phone, Home, MessageSquare, CheckCircle, XCircle, AlertCircle, Loader2, Calendar, Trash2, ExternalLink } from 'lucide-react';
+import { Clock, Phone, Home, MessageSquare, CheckCircle, XCircle, AlertCircle, Loader2, Calendar, Trash2, ExternalLink, User, Mail, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import { useAuth } from '../context/AuthContext';
 
 const AdminLeads = () => {
+    const { user: currentUser } = useAuth();
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const fetchLeads = async () => {
+        try {
+            const res = await leadService.getAllLeads();
+            setLeads(res.data);
+        } catch (error) {
+            console.error("Error fetching leads:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchLeads = async () => {
-            try {
-                const res = await leadService.getAllLeads();
-                setLeads(res.data);
-            } catch (error) {
-                console.error("Error fetching leads:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchLeads();
-    }, []);
+
+        // Realtime refresh
+        const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
+        const socket = io(socketUrl, {
+            query: { userId: currentUser?._id }
+        });
+
+        socket.on('leadCountUpdate', () => {
+            fetchLeads();
+        });
+
+        return () => socket.disconnect();
+    }, [currentUser]);
 
     const handleStatusUpdate = async (id, status) => {
         try {
@@ -86,7 +102,7 @@ const AdminLeads = () => {
                             <div className="flex-shrink-0 lg:w-48 space-y-2">
                                 <Link 
                                     to={`/room/${lead.roomId?._id}`} 
-                                    className="flex items-center gap-2 text-rose-500 hover:text-rose-400 transition-colors cursor-pointer group/link"
+                                    className="flex items-center gap-2 text-rose-500 hover:text-rose-400 transition-colors group/link"
                                 >
                                     <Home size={16} />
                                     <span className="text-sm font-black uppercase tracking-widest">Mã: {lead.roomId?.code || 'N/A'}</span>
@@ -100,13 +116,25 @@ const AdminLeads = () => {
                             {/* Customer Info */}
                             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-3">
+                                    {lead.userId && (
+                                        <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/5">
+                                            <div className="text-sm font-black text-rose-500 flex items-center gap-2">
+                                                <User size={16} />
+                                                {lead.userId.username}
+                                            </div>
+                                            <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2 mt-1">
+                                                <Mail size={14} />
+                                                {lead.userId.email}
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center">
                                             <Phone size={18} className="text-emerald-500" />
                                         </div>
                                         <div>
                                             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Khách hàng</div>
-                                            <div className="text-lg font-black text-white">{lead.customerPhone}</div>
+                                            <div className="text-lg font-black text-white leading-tight">{lead.customerPhone}</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -120,55 +148,58 @@ const AdminLeads = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 text-slate-500">
-                                        <Clock size={16} />
-                                        <span className="text-xs font-medium">Đặt lúc: {new Date(lead.createdAt).toLocaleString('vi-VN')}</span>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-slate-500">
+                                        <Clock size={14} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Gửi lúc: {new Date(lead.createdAt).toLocaleString('vi-VN')}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                            lead.status === 'pending' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                                            lead.status === 'contacted' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                            'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                        <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                            lead.status === 'pending' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]' :
+                                            lead.status === 'contacted' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                            lead.status === 'contracted' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                            'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
                                         }`}>
                                             {lead.status === 'pending' ? 'Đang chờ' : 
                                              lead.status === 'contacted' ? 'Đã liên hệ' : 
-                                             lead.status === 'viewing' ? 'Đang xem phòng' : 'Đã ký HĐ'}
+                                             lead.status === 'contracted' ? 'Đã ký HĐ' : 'Đã hoàn tiền'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center gap-3 shrink-0 lg:ml-auto">
+                            {/* Actions - Horizontal Flow */}
+                            <div className="flex flex-wrap items-center gap-3 shrink-0 lg:ml-auto">
                                 <button 
                                     onClick={() => handleStatusUpdate(lead._id, 'contacted')}
-                                    className="p-3 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white rounded-2xl transition-all shadow-lg"
-                                    title="Đã liên hệ sơ bộ"
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 ${lead.status === 'contacted' ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}
                                 >
-                                    <MessageSquare size={20} />
+                                    <MessageSquare size={14} />
+                                    Đã liên hệ
                                 </button>
+                                
                                 <button 
-                                    onClick={() => handleStatusUpdate(lead._id, 'viewing')}
-                                    className="p-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-2xl transition-all shadow-lg"
-                                    title="Xác nhận khách đang xem phòng"
+                                    onClick={() => handleStatusUpdate(lead._id, 'contracted')}
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 ${lead.status === 'contracted' ? 'bg-blue-600 text-white shadow-blue-500/20' : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}
                                 >
-                                    <CheckCircle size={20} />
+                                    <CheckCircle size={14} />
+                                    Đã kí HĐ
                                 </button>
+
                                 <button 
-                                    onClick={() => handleStatusUpdate(lead._id, 'cancelled')}
-                                    className="p-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl transition-all shadow-lg cursor-pointer"
-                                    title="Hủy yêu cầu"
+                                    onClick={() => handleStatusUpdate(lead._id, 'completed')}
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 ${lead.status === 'completed' ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white border border-emerald-500/20'}`}
                                 >
-                                    <XCircle size={20} />
+                                    <Sparkles size={14} />
+                                    Đã hoàn tiền
                                 </button>
                                 
                                 <div className="w-px h-8 bg-white/5 mx-1 hidden lg:block"></div>
 
                                 <button 
                                     onClick={() => handleDeleteLead(lead._id)}
-                                    className="p-3 bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white rounded-2xl transition-all cursor-pointer"
-                                    title="Xóa thông báo"
+                                    className="p-3 bg-white/5 hover:bg-rose-600 text-slate-500 hover:text-white rounded-2xl transition-all cursor-pointer border border-white/5 shadow-xl"
+                                    title="Xóa yêu cầu"
                                 >
                                     <Trash2 size={20} />
                                 </button>

@@ -1,192 +1,127 @@
 /**
- * Zalo Room Text Parser — Simplified Schema v2
- *
- * Supported Zalo format:
- *   🌹30%-12th.  Mã: TM292
- *   🏡 Địa chỉ: ngõ 255 Nguyễn Văn Trỗi, Hà Đông, HN
- *   ⏰Trống
- *   __________________
- *   💸Giá 4tr3 - P203
- *   👉Thang Máy
- *   ✅ Nội thất: như hình
- *   ✅ Dịch vụ: Điện 4000/số. Nước 35k/m3...
- *   ⛔️Lưu ý:
- *   - Đóng 1 cọc 1
- *   - Liên hệ 30p-1h trước khi qua
- *   SĐT: 0912345678
- *
- * Returns fields matching the Room schema.
+ * Structured Manual Input Parser — Updated for robustness
  */
-export const parseZaloText = (text) => {
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l !== "");
 
-    const result = {
-        // Public
-        address:      "",
-        price:        0,
-        roomNumber:   "",
-        availability: "",
-        status:       "available",   // mapped from ⏰ text
-        description:  "",
-        notes:        [],
-
-        // Admin-only
-        code:           "",
-        commissionRaw:  "",
-        commissionRate: 0,
-        ownerInfo: { name: "", phone: "" }
-    };
-
-    let inNotes = false;
-    const descLines = [];
-
-    for (const line of lines) {
-        // Skip visual separator lines (_____, -----)
-        if (/^[_\-=]{3,}$/.test(line)) continue;
-
-        // ── 1. Mã phòng + Hoa hồng ─────────────────────────────────────────
-        //   Format: "🌹30%-12th.  Mã: TM292"
-        if (line.match(/Mã\s*:/i)) {
-            if (line.includes("🌹")) {
-                result.commissionRaw = line
-                    .split("🌹")[1]
-                    ?.split(/Mã\s*:/i)[0]
-                    ?.replace(/[.\s]+$/, "")  // strip trailing dot/space
-                    .trim() || "";
-
-                // Extract numeric rate: "30%-12th" → 30
-                const rateMatch = result.commissionRaw.match(/(\d+(?:\.\d+)?)\s*%/);
-                result.commissionRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
-            }
-            // Code: first clean token after "Mã:"
-            const afterMa = line.replace(/.*Mã\s*:/i, "").trim();
-            result.code = afterMa.split(/[\s,./]+/)[0].trim();
-            continue;
+export const parsePriceValue = (text) => {
+    if (!text) return 0;
+    let clean = text.toLowerCase().replace(/,/g, "").trim();
+    
+    // 1 triệu = 1,000,000 (Sửa lỗi 100,000)
+    if (clean.includes("tr") || clean.includes("triệu")) {
+        let parts = clean.split(/(?:tr|triệu)/);
+        let millions = parseFloat(parts[0]) || 0;
+        let decimals = 0;
+        if (parts[1]) {
+            let sub = parts[1].trim().substring(0, 1);
+            if (!isNaN(sub)) decimals = parseFloat(sub) * 100000;
         }
-
-        // ── 2. Địa chỉ (🏡 / 🏠 / plain "Địa chỉ:") ──────────────────────
-        if (line.match(/(🏡|🏠)\s*Địa\s*chỉ\s*:/i) || line.match(/^Địa\s*chỉ\s*:/i)) {
-            result.address = line.replace(/.*Địa\s*chỉ\s*:/i, "").trim();
-            continue;
-        }
-
-        // ── 3. Trạng thái / Vào ở (⏰Trống / ⏰ Sắp trống) ─────────────────
-        if (line.match(/^⏰/)) {
-            const text = line.replace(/^⏰\s*/, "").trim();
-            result.availability = text;
-            result.status = mapStatusText(text);
-            continue;
-        }
-        if (line.match(/^(Vào\s*ở|Trạng\s*thái)\s*:/i)) {
-            const text = line.replace(/^(Vào\s*ở|Trạng\s*thái)\s*:/i, "").trim();
-            result.availability = text;
-            result.status = mapStatusText(text);
-            continue;
-        }
-
-        // ── 4. Giá + Số phòng (💸Giá 4tr3 - P203 / 💰 Giá: 4tr3) ──────────
-        if (line.match(/(💸|💰)\s*Giá/i) || line.match(/^Giá\s*:/i)) {
-            const cleaned = line
-                .replace(/(💸|💰)\s*Giá\s*:?\s*/i, "")
-                .replace(/^Giá\s*:\s*/i, "")
-                .trim();
-
-            const dashParts = cleaned.split(/\s*[-–]\s*/);
-            result.price = parsePriceValue(dashParts[0]);
-
-            if (dashParts[1] && /^[Pp]\d+|Phòng/i.test(dashParts[1].trim())) {
-                result.roomNumber = dashParts[1].trim();
-            } else if (dashParts[1]) {
-                descLines.push(dashParts[1].trim());
-            }
-            continue;
-        }
-
-        // ── 5. Số phòng standalone ────────────────────────────────────────
-        if (line.match(/^Phòng\s*:/i)) {
-            result.roomNumber = line.replace(/^Phòng\s*:/i, "").trim();
-            continue;
-        }
-
-        // ── 6. SĐT Chủ / Liên hệ ─────────────────────────────────────────
-        if (line.match(/^(SĐT|Liên\s*hệ|Phone|đt|Tel)\s*:/i)) {
-            const phone = line
-                .replace(/^(SĐT|Liên\s*hệ|Phone|đt|Tel)\s*:/i, "")
-                .replace(/[^0-9]/g, "")
-                .trim();
-            if (phone.length >= 10) result.ownerInfo.phone = phone;
-            continue;
-        }
-
-        // ── 7. Lưu ý header (⛔️ / ⚠️ / ❗) ───────────────────────────────
-        if (line.match(/(⛔️?|⚠️?|❗)\s*Lưu\s*ý\s*:?/iu) || line.match(/^Lưu\s*ý\s*:/i)) {
-            inNotes = true;
-            continue;
-        }
-
-        // ── 8. Nội dung Lưu ý ────────────────────────────────────────────
-        if (inNotes) {
-            if (line.startsWith("-") || /^\d+\./.test(line)) {
-                result.notes.push(line.replace(/^-|^\d+\./, "").trim());
-            } else if (line.length > 2) {
-                result.notes.push(line);
-            }
-            continue;
-        }
-
-        // ── 9. Tất cả còn lại → Mô tả ─────────────────────────────────────
-        //   Nội thất (✅), tiện ích (👉), dịch vụ (✅), v.v.
-        const cleaned = line
-            .replace(/^(✅|👉|💡|🔑|🚗|🏋️|📦|⭐|🌟)\s*/u, "")
-            .trim();
-        if (cleaned) descLines.push(cleaned);
+        return (millions * 1000000) + decimals;
     }
-
-    result.description = descLines.filter(l => l).join("\n").trim();
-    return result;
+    
+    if (clean.includes("k") || clean.includes("ngàn")) {
+        return (parseFloat(clean.replace(/(?:k|ngàn)/g, "")) || 0) * 1000;
+    }
+    return parseFloat(clean.replace(/[^0-9]/g, "")) || 0;
 };
 
-/**
- * Map availability text to status enum
- */
-function mapStatusText(text) {
-    const t = text.toLowerCase();
-    if (t.includes("đã thuê") || t.includes("hết phòng") || t.includes("rented")) return "rented";
-    if (t.includes("sắp trống") || t.includes("sắp") || t.includes("coming")) return "coming-soon";
-    return "available"; // "Trống", "Vào ở luôn", "Cuối tháng", etc.
-}
+export const parseZaloText = (text) => {
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l !== "");
+    const result = {
+        address: "",
+        price: 0,
+        roomNumber: "",
+        availability: "",
+        status: "available",
+        description: "",
+        notes: [],
+        code: "",
+        commissionRaw: "",
+        commissionRate: 0,
+        ownerInfo: { name: "", phone: "" },
+        cashbackAmount: 0 
+    };
 
-/**
- * Parse Vietnamese price strings → number (VNĐ)
- * Supports: "4tr3", "3.5tr", "4,5tr", "4.000.000", "3 triệu", "3tr"
- */
-export function parsePriceValue(str) {
-    if (str === null || str === undefined) return 0;
-    if (typeof str === "number") return str;
+    let currentSection = "";
 
-    let s = String(str).toLowerCase().trim().replace(/\s+/g, "");
-
-    // "3tr5", "4tr3", "3tr", "4.5tr", "4,5tr"
-    const trMatch = s.match(/^(\d+)([.,]\d+)?tr(\d+)?/);
-    if (trMatch) {
-        let val = parseInt(trMatch[1]) * 1_000_000;
-        if (trMatch[2]) {
-            // 4.5tr → 4,500,000
-            val = parseFloat(trMatch[1] + trMatch[2].replace(",", ".")) * 1_000_000;
-        } else if (trMatch[3]) {
-            // 4tr3 → 4,300,000
-            val += parseInt(trMatch[3]) * (trMatch[3].length === 1 ? 100_000 : 10_000);
+    lines.forEach(line => {
+        // Nới lỏng regex: Cho phép emoji ở đầu, dấu hai chấm có thể có hoặc không
+        
+        // 1. Hoa hồng
+        if (line.match(/Hoa\s*hồng\s*:?/i)) {
+            const val = line.split(/Hoa\s*hồng\s*:?/i)[1]?.trim();
+            if (val) {
+                result.commissionRaw = val;
+                const rate = val.match(/(\d+)/);
+                if (rate) result.commissionRate = parseFloat(rate[1]);
+            }
+            return;
         }
-        return Math.round(val);
-    }
 
-    // "3 triệu", "3.5 triệu"
-    if (s.includes("triệu")) {
-        const v = parseFloat(s.replace("triệu", "").replace(",", "."));
-        return Math.round(v * 1_000_000);
-    }
+        // 2. Mã phòng
+        if (line.match(/Mã\s*:?/i)) {
+            result.code = line.split(/Mã\s*:?/i)[1]?.trim() || "";
+            return;
+        }
 
-    // Plain number: "4000000", "4.000.000"
-    const numOnly = s.replace(/[^0-9]/g, "");
-    return parseInt(numOnly) || 0;
-}
+        // 3. Số phòng
+        if (line.match(/Phòng\s*:?/i)) {
+            result.roomNumber = line.split(/Phòng\s*:?/i)[1]?.trim() || "";
+            return;
+        }
+
+        // 4. Giá
+        if (line.match(/Giá\s*:?/i)) {
+            const priceText = line.split(/Giá\s*:?/i)[1]?.trim();
+            result.price = parsePriceValue(priceText);
+            return;
+        }
+
+        // 5. Địa chỉ
+        if (line.match(/Địa\s*chỉ\s*:?/i)) {
+            result.address = line.split(/Địa\s*chỉ\s*:?/i)[1]?.trim() || "";
+            return;
+        }
+
+        // 6. Trạng thái
+        if (line.match(/Trạng\s*thái\s*:?/i)) {
+            const st = line.split(/Trạng\s*thái\s*:?/i)[1]?.trim() || "";
+            result.availability = st;
+            const lower = st.toLowerCase();
+            if (lower.includes("hết") || lower.includes("thuê")) result.status = "rented";
+            else if (lower.includes("sắp")) result.status = "coming-soon";
+            else result.status = "available";
+            return;
+        }
+
+        // 7. Mô tả
+        if (line.match(/Mô\s*tả\s*:?/i)) {
+            result.description = line.split(/Mô\s*tả\s*:?/i)[1]?.trim() || "";
+            currentSection = "description";
+            return;
+        }
+
+        // 8. Hoàn khách (Cashback)
+        if (line.match(/Hoàn\s*(?:khách|trả)\s*:?/i)) {
+            const val = line.split(/Hoàn\s*(?:khách|trả)\s*:?/i)[1]?.trim();
+            result.cashbackAmount = parsePriceValue(val);
+            return;
+        }
+
+        // 9. Lưu ý
+        if (line.match(/Lưu\s*ý\s*:?/i)) {
+            currentSection = "notes";
+            const inlineNote = line.split(/Lưu\s*ý\s*:?/i)[1]?.trim();
+            if (inlineNote) result.notes.push(inlineNote);
+            return;
+        }
+
+        // Xử lý ghi chú hoặc mô tả xuống dòng
+        if (currentSection === "description") {
+            result.description += "\n" + line;
+        } else if (currentSection === "notes") {
+            result.notes.push(line.replace(/^-|^\d+\.\s*/, "").trim());
+        }
+    });
+
+    return result;
+};

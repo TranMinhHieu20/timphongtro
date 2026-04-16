@@ -7,10 +7,16 @@ import {
     getLeads, 
     getPendingCount,
     updateLeadStatus,
-    deleteLead
+    deleteLead,
+    getSuccessStories,
+    getGlobalStats
 } from "../controllers/lead.controller.js";
 
 const router = express.Router();
+
+// Public routes
+router.get("/success-stories", getSuccessStories);
+router.get("/stats", getGlobalStats);
 
 // User routes
 router.post("/", protectRoute, createOrUpdateLead);

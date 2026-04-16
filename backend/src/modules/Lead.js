@@ -23,13 +23,16 @@ const LeadSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "contacted", "interested", "viewing", "signed", "refunded", "cancelled"],
+        enum: ["pending", "contacted", "contracted", "completed", "cancelled"],
         default: "pending"
     },
     note: {
         type: String
     }
 }, { timestamps: true });
+
+// TTL Index: Auto-delete data after 30 days (2,592,000 seconds)
+LeadSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 const Lead = mongoose.model("Lead", LeadSchema);
 

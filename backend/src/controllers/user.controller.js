@@ -1,5 +1,6 @@
 import User from "../modules/User.js";
 import bcrypt from "bcrypt";
+import { io } from "../server.js";
 
 export const toggleFavorite = async (req, res) => {
     try {
@@ -15,6 +16,10 @@ export const toggleFavorite = async (req, res) => {
         }
 
         await user.save();
+
+        // Emit realtime update to all tabs/devices of the same user
+        io.to(user._id.toString()).emit('favoriteUpdate', user.favorites);
+
         res.status(200).json({ success: true, favorites: user.favorites });
     } catch (error) {
         res.status(500).json({ message: error.message });

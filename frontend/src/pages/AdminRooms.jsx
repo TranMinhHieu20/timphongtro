@@ -29,6 +29,27 @@ const AdminRooms = () => {
     }
   };
 
+  useEffect(() => {
+    const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
+    import('socket.io-client').then(({ io }) => {
+      const socket = io(socketUrl);
+
+      socket.on('newRoomCreated', (newRoom) => {
+        setRooms(prev => [newRoom, ...prev]);
+      });
+
+      socket.on('roomUpdated', (updatedRoom) => {
+        setRooms(prev => prev.map(r => r._id === updatedRoom._id ? updatedRoom : r));
+      });
+
+      socket.on('roomDeleted', (roomId) => {
+        setRooms(prev => prev.filter(r => r._id !== roomId));
+      });
+
+      return () => socket.disconnect();
+    });
+  }, []);
+
   const handleDelete = async (id, code) => {
     if (window.confirm(`Bạn có chắc muốn xóa phòng ${code} vĩnh viễn không?`)) {
       try {
@@ -58,9 +79,32 @@ const AdminRooms = () => {
       description: room.description,
       availability: room.availability,
       roomNumber: room.roomNumber,
-      contactPhone: room.contactPhone
+      code: room.code, // Thêm trường Mã để sửa
+      contactPhone: room.ownerInfo?.phone || '',
+      commissionRate: room.commissionRate || 0,
+      cashbackAmount: room.cashbackAmount || 0,
+      totalCommission: room.totalCommission || 0,
+      notes: Array.isArray(room.notes) ? room.notes.join('\n') : (room.notes || '')
     });
   };
+
+  const handleEditFieldChange = (field, value) => {
+    setEditFormData(prev => {
+        const numValue = (field === 'price' || field === 'commissionRate' || field === 'cashbackAmount' || field === 'totalCommission') 
+                         ? (parseFloat(value) || 0) 
+                         : value;
+        const newData = { ...prev, [field]: numValue };
+        
+        // Tự động tính lại tài chính khi sửa Giá hoặc % Hoa hồng
+        if (field === 'price' || field === 'commissionRate') {
+            newData.totalCommission = Math.round((newData.price * newData.commissionRate) / 100);
+            newData.cashbackAmount = Math.round(newData.price * 0.09);
+        }
+        return newData;
+    });
+  };
+
+  const editNetProfit = editFormData.totalCommission - editFormData.cashbackAmount;
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
@@ -78,7 +122,8 @@ const AdminRooms = () => {
 
   const filteredRooms = rooms.filter(r => 
     r.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.address.toLowerCase().includes(searchTerm.toLowerCase())
+    r.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (r.displayId && r.displayId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) return (
@@ -131,20 +176,39 @@ const AdminRooms = () => {
 
             {/* Info */}
             <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <span className="bg-slate-950 text-rose-500 text-[10px] font-black px-3 py-1 rounded-full border border-rose-500/20 uppercase tracking-widest">
                   {room.code}
                 </span>
-                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest truncate ${room.status === 'available' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-widest">
+                  {room.displayId}
+                </span>
+                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest truncate ${room.status === 'available' ? 'bg-slate-800 text-slate-400' : 'bg-rose-500/10 text-rose-400'}`}>
                   {room.status === 'available' ? 'Còn phòng' : 'Hết phòng'}
                 </span>
               </div>
               <h3 className="text-lg font-black text-white truncate">{room.address}</h3>
-              <div className="flex items-center gap-4 text-slate-500 text-xs font-bold">
+              <div className="flex items-center gap-4 text-slate-500 text-xs font-bold mt-1">
                 <span className="text-white">{(room.price / 1000000).toFixed(1)}tr/tháng</span>
                 <span>•</span>
                 <span>{room.roomNumber ? `Phòng ${room.roomNumber}` : 'Chưa rõ số phòng'}</span>
               </div>
+            </div>
+
+            {/* Financial Info (Admin only details) */}
+            <div className="flex flex-col gap-2 md:items-end px-6 md:border-r md:border-white/5 min-w-[150px]">
+               <div className="flex items-center gap-2">
+                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Hoa hồng:</span>
+                 <span className="text-xs font-bold text-amber-500">{(room.totalCommission || 0).toLocaleString()}đ</span>
+               </div>
+               <div className="flex items-center gap-2">
+                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Hoàn khách:</span>
+                 <span className="text-xs font-bold text-rose-500">{(room.cashbackAmount || 0).toLocaleString()}đ</span>
+               </div>
+               <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Lợi nhuận:</span>
+                 <span className="text-sm font-black text-emerald-400">{(room.netProfit || 0).toLocaleString()}đ</span>
+               </div>
             </div>
 
             {/* Quick Actions */}
@@ -215,67 +279,117 @@ const AdminRooms = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveEdit} className="p-8 space-y-6 flex-1 overflow-auto max-h-[70vh]">
-                <div className="grid grid-cols-2 gap-6">
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Giá thuê (VNĐ)</label>
+              <form onSubmit={handleSaveEdit} className="p-8 space-y-5 flex-1 overflow-auto max-h-[75vh]">
+                {/* Row 1: Hoa hồng | Mã | Phòng */}
+                <div className="grid grid-cols-3 gap-4">
+                   <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Hoa hồng (%)</label>
                       <input 
                         type="number" 
-                        value={editFormData.price}
-                        onChange={(e) => setEditFormData({...editFormData, price: e.target.value})}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20"
+                        value={editFormData.commissionRate}
+                        onChange={(e) => handleEditFieldChange('commissionRate', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-amber-500 font-bold text-sm focus:ring-1 focus:ring-amber-500/50"
                       />
                    </div>
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Số phòng / Tầng</label>
+                   <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Mã phòng</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.code}
+                        onChange={(e) => handleEditFieldChange('code', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white font-bold text-sm"
+                      />
+                   </div>
+                   <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Số phòng</label>
                       <input 
                         type="text" 
                         value={editFormData.roomNumber}
-                        onChange={(e) => setEditFormData({...editFormData, roomNumber: e.target.value})}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20"
+                        onChange={(e) => handleEditFieldChange('roomNumber', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white font-bold text-sm"
                       />
                    </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Địa chỉ chi tiết</label>
-                    <input 
-                      type="text" 
-                      value={editFormData.address}
-                      onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20"
-                    />
+                {/* Row 2: Giá | Địa chỉ | Trạng thái */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                   <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Giá thuê</label>
+                      <input 
+                        type="number" 
+                        value={editFormData.price}
+                        onChange={(e) => handleEditFieldChange('price', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white font-bold text-sm"
+                      />
+                   </div>
+                   <div className="md:col-span-2 space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Địa chỉ</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.address}
+                        onChange={(e) => handleEditFieldChange('address', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white font-bold text-sm"
+                      />
+                   </div>
+                   <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-500 uppercase px-2">Trạng thái</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.availability}
+                        onChange={(e) => handleEditFieldChange('availability', e.target.value)}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-emerald-400 font-bold text-sm"
+                      />
+                   </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Mô tả thêm / Ngày vào ở</label>
-                    <input 
-                      type="text" 
-                      value={editFormData.availability}
-                      onChange={(e) => setEditFormData({...editFormData, availability: e.target.value})}
-                      placeholder="Ví dụ: Vào ở ngay hoặc mùng 10 tới"
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20"
-                    />
+                {/* Descriptions & Notes */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                       <label className="text-[9px] font-black text-slate-500 uppercase px-2">Mô tả phòng</label>
+                       <textarea 
+                         rows={3}
+                         value={editFormData.description}
+                         onChange={(e) => handleEditFieldChange('description', e.target.value)}
+                         className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white text-xs resize-none"
+                       />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[9px] font-black text-slate-500 uppercase px-2">Lưu ý</label>
+                       <textarea 
+                         rows={3}
+                         value={editFormData.notes}
+                         onChange={(e) => handleEditFieldChange('notes', e.target.value)}
+                         className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white text-xs resize-none"
+                       />
+                    </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Số điện thoại chủ (Liên hệ)</label>
-                    <input 
-                      type="text" 
-                      value={editFormData.contactPhone}
-                      onChange={(e) => setEditFormData({...editFormData, contactPhone: e.target.value})}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20"
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Mô tả chi tiết</label>
-                    <textarea 
-                      rows={4}
-                      value={editFormData.description}
-                      onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-white font-bold focus:ring-2 focus:ring-rose-500/20 resize-none"
-                    ></textarea>
+                {/* Financial Overview in Modal */}
+                <div className="pt-4 border-t border-white/5 space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Tiền hoa hồng (VND)</p>
+                         <input 
+                            type="number" 
+                            value={editFormData.totalCommission}
+                            onChange={(e) => handleEditFieldChange('totalCommission', e.target.value)}
+                            className="bg-transparent text-amber-500 font-black text-base focus:outline-none w-full"
+                         />
+                      </div>
+                      <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hoàn trả khách (VND)</p>
+                         <input 
+                            type="number" 
+                            value={editFormData.cashbackAmount}
+                            onChange={(e) => handleEditFieldChange('cashbackAmount', e.target.value)}
+                            className="bg-transparent text-rose-500 font-black text-base focus:outline-none w-full"
+                         />
+                      </div>
+                   </div>
+                   <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 flex justify-between items-center">
+                      <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Lợi nhuận thực nhận (Lãi):</p>
+                      <p className="text-xl font-black text-emerald-400 tracking-tighter">{editNetProfit.toLocaleString()}đ</p>
+                   </div>
                 </div>
 
                 <div className="pt-6 flex gap-4">

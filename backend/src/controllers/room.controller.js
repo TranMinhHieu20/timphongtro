@@ -2,6 +2,7 @@ import Room from "../modules/Room.js";
 import { parseZaloText, parsePriceValue } from "../lib/zaloParser.js";
 import { uploadImage } from "../lib/cloudinary.js";
 import xlsx from "xlsx";
+import { io } from "../server.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,9 +53,10 @@ const getCellValue = (row, variations) => {
 
 /**
  * Strip admin-only fields from a room object for public users.
- * Fields: code, commissionRaw, commissionRate, totalCommission, netProfit, ownerInfo.
+ * Public see: displayId, price, address, cashbackAmount, status, images, description, availability, roomNumber.
+ * Admin see: All + code, commissionRate, totalCommission, netProfit, ownerInfo.
  */
-const ADMIN_FIELDS = ["code", "commissionRaw", "commissionRate", "totalCommission", "netProfit", "ownerInfo"];
+const ADMIN_FIELDS = ["code", "commissionRate", "totalCommission", "netProfit", "commissionRaw", "ownerInfo"];
 const toPublicRoom = (room, isAdmin) => {
     const obj = room.toObject ? room.toObject() : { ...room };
     if (!isAdmin) {
@@ -65,11 +67,11 @@ const toPublicRoom = (room, isAdmin) => {
 
 // ─── Controllers ──────────────────────────────────────────────────────────────
 
-// GET ALL ROOMS — supports filters: district, minPrice, maxPrice, sortBy
+// GET ALL ROOMS — supports filters: district, minPrice, maxPrice, sortBy, geo, search
 export const getAllRooms = async (req, res) => {
     try {
         const admin = req.user?.role === "admin";
-        const { district, minPrice, maxPrice, sortBy } = req.query;
+        const { district, minPrice, maxPrice, sortBy, lat, lng, q } = req.query;
 
         const filter = {};
         if (district) filter.address = { $regex: district, $options: "i" };
@@ -79,7 +81,33 @@ export const getAllRooms = async (req, res) => {
             if (maxPrice) filter.price.$lte = Number(maxPrice);
         }
 
-        // Sort: by cashback desc (highest cashback first), or newest first
+        // Text Search logic
+        if (q) {
+            filter.$or = [
+                { address: { $regex: q, $options: "i" } },
+                { displayId: { $regex: q, $options: "i" } },
+                { description: { $regex: q, $options: "i" } },
+                ...(admin ? [{ code: { $regex: q, $options: "i" } }] : [])
+            ];
+        }
+
+        // 1. Logic for Nearest (Spatial Search)
+        if (sortBy === "nearest" && lat && lng) {
+            filter.location = {
+                $near: {
+                    $geometry: {
+                        type: "Point",
+                        coordinates: [parseFloat(lng), parseFloat(lat)]
+                    }
+                }
+            };
+            
+            // Note: $near automatically sorts by distance starting from version 1.6
+            const rooms = await Room.find(filter).limit(100);
+            return res.status(200).json(rooms.map((r) => toPublicRoom(r, admin)));
+        }
+
+        // 2. Logic for Standard Sorting
         const sortOptions =
             sortBy === "cashback" ? { cashbackAmount: -1 } :
             sortBy === "price_asc" ? { price: 1 } :
@@ -132,39 +160,48 @@ export const searchRooms = async (req, res) => {
 // IMPORT ROOM FROM ZALO TEXT
 export const importZaloRoom = async (req, res) => {
     try {
-        const { text } = req.body;
-        if (!text) return res.status(400).json({ message: "Text là bắt buộc" });
-
-        const parsed = parseZaloText(text);
-
-        // Upload images if provided
-        if (req.files && req.files.length > 0) {
-            const urls = await Promise.all(
-                req.files.map((file) => {
-                    const b64 = Buffer.from(file.buffer).toString("base64");
-                    const dataURI = `data:${file.mimetype};base64,${b64}`;
-                    return uploadImage(dataURI).then((r) => r.secure_url);
-                })
-            );
-            parsed.images = urls;
+        const { text, ...manualData } = req.body;
+        
+        // Nếu có text thì bóc tách, nếu không thì dùng dữ liệu manual từ Form
+        let roomData = {};
+        if (text) {
+            roomData = parseZaloText(text);
+        } else if (manualData && manualData.price) {
+            //Ưu tiên dữ liệu từ Form gửi lên
+            roomData = {
+                ...manualData,
+                notes: typeof manualData.notes === 'string' ? manualData.notes.split('\n') : manualData.notes
+            };
+        } else {
+            return res.status(400).json({ message: "Vui lòng nhập nội dung hoặc điền Form" });
         }
 
-        // Auto-calculate financials
-        const financials = calcFinancials(parsed.price, parsed.commissionRate);
+        const images = [];
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const b64 = Buffer.from(file.buffer).toString("base64");
+                const dataURI = `data:${file.mimetype};base64,${b64}`;
+                const result = await uploadImage(dataURI);
+                images.push(result.secure_url);
+            }
+        }
 
-        const roomData = {
-            ...parsed,
-            ...financials,
+        const finalData = {
+            ...roomData,
+            images: images.length > 0 ? images : roomData.images,
             displayId: await generateDisplayId()
         };
 
-        const newRoom = new Room(roomData);
+        const newRoom = new Room(finalData);
         await newRoom.save();
 
-        res.status(201).json({ message: "Đăng phòng thành công", room: newRoom });
+        // Emit realtime event
+        io.emit('newRoomCreated', toPublicRoom(newRoom, false));
+
+        res.status(201).json({ message: "Đăng phòng thành công", room: toPublicRoom(newRoom, true) });
     } catch (error) {
         console.error("Error in importZaloRoom:", error.message);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(400).json({ message: "Lỗi lưu phòng: " + error.message });
     }
 };
 
@@ -230,9 +267,6 @@ export const importExcelRooms = async (req, res) => {
                 const ownerPhone = ownerRaw.replace(/[^0-9]/g, "").slice(0, 11);
                 const ownerName  = ownerRaw.replace(/[\d\-().\s]+/g, "").trim();
 
-                // ─ Financials
-                const financials = calcFinancials(price, commissionRate);
-
                 const roomData = {
                     code: String(code).trim(),
                     address: String(address).trim(),
@@ -246,7 +280,6 @@ export const importExcelRooms = async (req, res) => {
                     commissionRate,
                     ownerInfo: { name: ownerName, phone: ownerPhone },
                     images: [],
-                    ...financials,
                 };
 
                 // ─ Match images to this room
@@ -296,6 +329,10 @@ export const updateRoomStatus = async (req, res) => {
         }
         const room = await Room.findByIdAndUpdate(req.params.id, { status }, { new: true });
         if (!room) return res.status(404).json({ message: "Không tìm thấy phòng" });
+        
+        // Emit realtime event
+        io.emit('roomUpdated', toPublicRoom(room, false));
+
         res.status(200).json({ message: "Cập nhật thành công", room });
     } catch (error) {
         console.error("Error in updateRoomStatus:", error.message);
@@ -317,6 +354,10 @@ export const updateRoom = async (req, res) => {
 
         const room = await Room.findByIdAndUpdate(req.params.id, updateData, { new: true });
         if (!room) return res.status(404).json({ message: "Không tìm thấy phòng" });
+
+        // Emit realtime event
+        io.emit('roomUpdated', toPublicRoom(room, false));
+
         res.status(200).json({ message: "Cập nhật thành công", room });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -328,6 +369,10 @@ export const deleteRoom = async (req, res) => {
     try {
         const room = await Room.findByIdAndDelete(req.params.id);
         if (!room) return res.status(404).json({ message: "Không tìm thấy phòng" });
+
+        // Emit realtime event
+        io.emit('roomDeleted', req.params.id);
+
         res.status(200).json({ success: true, message: "Xoá phòng thành công" });
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/api';
 import { motion } from 'framer-motion';
 
-const RoomCard = ({ room, onCompareToggle, isSelected }) => {
+const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
   const { user, isAuthenticated, isAdmin } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadingFav, setLoadingFav] = useState(false);
@@ -20,14 +20,18 @@ const RoomCard = ({ room, onCompareToggle, isSelected }) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) return alert("Vui lòng đăng nhập để lưu phòng!");
-    setLoadingFav(true);
+    
+    // Phản hồi tức thì trên UI
+    const previousState = isFavorite;
+    setIsFavorite(!previousState);
+
     try {
-      const res = await userService.toggleFavorite(room._id);
-      setIsFavorite(res.data.favorites.includes(room._id));
+      await userService.toggleFavorite(room._id);
+      if (onFavoriteToggle) onFavoriteToggle();
+      // Backend handles toggle, we already updated UI
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoadingFav(false);
+      setIsFavorite(previousState); // Hoàn tác nếu lỗi
     }
   };
 
@@ -84,10 +88,22 @@ const RoomCard = ({ room, onCompareToggle, isSelected }) => {
             {/* Favorite */}
             <button
               onClick={toggleFav}
-              className={`p-2.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${isFavorite ? 'bg-rose-500 border-rose-400 shadow-lg shadow-rose-500/40' : 'bg-slate-950/40 border-white/10 hover:bg-white/10'}`}
+              className={`p-3 rounded-full backdrop-blur-xl border-2 transition-all duration-300 cursor-pointer ${isFavorite 
+                ? 'bg-rose-500 border-white shadow-xl shadow-rose-500/50 scale-110' 
+                : 'bg-slate-950/40 border-white/10 hover:bg-white/10 hover:border-white/30'}`}
             >
-              <motion.div animate={{ scale: isFavorite ? [1, 1.4, 1] : 1 }} transition={{ duration: 0.3 }}>
-                <Heart size={18} fill={isFavorite ? "white" : "none"} className={isFavorite ? "text-white" : "text-slate-400"} />
+              <motion.div 
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.8 }}
+                animate={{ scale: isFavorite ? [1, 1.4, 1] : 1 }} 
+                transition={{ duration: 0.3 }}
+              >
+                <Heart 
+                  size={20} 
+                  fill={isFavorite ? "white" : "none"} 
+                  className={isFavorite ? "text-white" : "text-white/70"}
+                  strokeWidth={isFavorite ? 3 : 2}
+                />
               </motion.div>
             </button>
 
@@ -114,20 +130,22 @@ const RoomCard = ({ room, onCompareToggle, isSelected }) => {
           </div>
 
           {/* Cashback badge */}
-          <div className="absolute bottom-5 left-5 right-5">
-            <div className="bg-emerald-500/80 backdrop-blur-md p-4 rounded-2xl border border-emerald-400/50 shadow-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-xl">
-                  <Zap size={16} className="text-white" fill="white" />
+          {room.cashbackAmount > 0 && (
+            <div className="absolute bottom-5 left-5 right-5">
+              <div className="bg-emerald-500/80 backdrop-blur-md p-4 rounded-2xl border border-emerald-400/50 shadow-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-xl">
+                    <Zap size={16} className="text-white" fill="white" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">TIỀN HOÀN TRẢ</p>
+                    <p className="text-white/70 text-[8px] font-medium leading-none">Nhận ngay khi ký HĐ</p>
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">Hoàn tiền 9%</p>
-                  <p className="text-white/70 text-[8px] font-medium leading-none">Ký HĐ nhận ngay</p>
-                </div>
+                <span className="text-white font-black text-xl tracking-tight">{formatCurrency(room.cashbackAmount)}</span>
               </div>
-              <span className="text-white font-black text-xl tracking-tight">{formatCurrency(room.cashbackAmount)}</span>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Info Section ──────────────────────────────────────────────────── */}
@@ -153,13 +171,6 @@ const RoomCard = ({ room, onCompareToggle, isSelected }) => {
               <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">/ Tháng</span>
             </div>
 
-            {/* Commission badge if present */}
-            {room.commission && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 rounded-full border border-rose-500/20">
-                <BadgeCheck size={12} className="text-rose-400" />
-                <span className="text-[10px] font-black text-rose-400">{room.commission}</span>
-              </div>
-            )}
           </div>
         </div>
       </div>

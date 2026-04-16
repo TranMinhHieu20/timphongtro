@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { roomService, leadService } from '../services/api';
-import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw } from 'lucide-react';
+import { roomService, leadService, userService } from '../services/api';
+import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw, Sparkles, Heart } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 const RoomDetail = () => {
@@ -14,8 +15,10 @@ const RoomDetail = () => {
   const [bookingStep, setBookingStep] = useState('idle');
   const [customerPhone, setCustomerPhone] = useState('');
   const [appointment, setAppointment] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [loadingFav, setLoadingFav] = useState(false);
 
-  const { isAdmin, isAuthenticated } = useAuth();
+  const { user, isAdmin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,12 +44,32 @@ const RoomDetail = () => {
             setBookingStep('finished');
           }
         } catch {}
+
+        // Check favorite status from user object or re-fetch
+        if (user?.favorites) {
+            setIsFavorite(user.favorites.includes(id));
+        }
       }
     };
 
     fetchRoom();
     fetchLead();
-  }, [id, isAuthenticated]);
+  }, [id, isAuthenticated, user]);
+
+  const toggleFav = async () => {
+    if (!isAuthenticated) return navigate('/login', { state: { from: location.pathname } });
+    
+    // Phản hồi tức thì
+    const previousState = isFavorite;
+    setIsFavorite(!previousState);
+
+    try {
+      await userService.toggleFavorite(id);
+    } catch (err) {
+      console.error(err);
+      setIsFavorite(previousState); // Hoàn tác
+    }
+  };
 
   const handleStatusToggle = async () => {
     if (!room) return;
@@ -148,22 +171,28 @@ const RoomDetail = () => {
             {/* Badges: displayId, status, admin code */}
             <div className="flex flex-wrap items-center gap-3">
               {room.displayId && (
-                <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">
+                <span className="bg-rose-500 text-white text-[12px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">
                   #{room.displayId}
                 </span>
               )}
-              <span className={`text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] border ${statusColor[room.status]}`}>
+              <span className={`text-[12px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] border ${statusColor[room.status]}`}>
                 {statusLabel[room.status] || room.status}
               </span>
               {room.availability && (
-                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">
+                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[12px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">
                   {room.availability}
                 </span>
               )}
               {/* Admin: real code + toggle status */}
               {isAdmin && room.code && (
-                <span className="bg-slate-800 text-slate-400 text-[9px] font-mono px-3 py-1.5 rounded-full border border-white/10 tracking-widest">
-                  {room.code}{room.roomNumber ? ` · ${room.roomNumber}` : ''}
+                <span className="bg-slate-800 text-slate-400 text-[12px] font-mono px-3 py-1.5 rounded-full border border-white/10 tracking-widest">
+                  {room.code}{room.roomNumber ? ` · ${room.roomNumber.toUpperCase()}` : ''}
+                </span>
+              )}
+
+              {room.roomNumber && (
+                <span className="bg-slate-800 text-slate-400 text-[12px] font-mono px-3 py-1.5 rounded-full border border-white/10 tracking-widest">
+                  {room.roomNumber.toUpperCase()}
                 </span>
               )}
             </div>
@@ -210,6 +239,53 @@ const RoomDetail = () => {
                 </ul>
               </div>
             )}
+
+            {/* ── ADMIN ONLY SECTION: OWNER & FINANCIALS ── */}
+            {isAdmin && (
+              <div className="mt-12 p-8 bg-slate-950/60 rounded-[2.5rem] border border-rose-500/20 space-y-8">
+                 <div className="flex items-center gap-3 text-rose-500 text-xs font-black uppercase tracking-[0.3em]">
+                    <Sparkles size={16} /> Thông tin nội bộ (Chỉ Admin)
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Owner Info */}
+                    <div className="space-y-4">
+                       <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Nguồn hàng / Chủ nhà</h3>
+                       <div className="bg-white/5 p-5 rounded-2xl space-y-3">
+                          <div className="flex items-center gap-3">
+                             <div className="p-2 rounded-lg bg-rose-500/20 text-rose-500"><User size={16} /></div>
+                             <span className="text-white font-black">{room.ownerInfo?.name || 'Chưa cập nhật tên'}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                             <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-500"><Phone size={16} /></div>
+                             <a href={`tel:${room.ownerInfo?.phone}`} className="text-white font-black hover:text-emerald-400 transition-colors">
+                                {room.ownerInfo?.phone || 'Chưa có SĐT'}
+                             </a>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* Financial Summary */}
+                    <div className="space-y-4">
+                       <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Tính toán lợi nhuận</h3>
+                       <div className="bg-white/5 p-5 rounded-2xl space-y-2 font-bold">
+                          <div className="flex justify-between text-xs">
+                             <span className="text-slate-500">Hoa hồng ({room.commissionRate}%):</span>
+                             <span className="text-white">{(room.totalCommission || 0).toLocaleString()}đ</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                             <span className="text-slate-500">Hoàn khách (Cashback):</span>
+                             <span className="text-rose-400">-{(room.cashbackAmount || 0).toLocaleString()}đ</span>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-white/5 flex justify-between items-center">
+                             <span className="text-slate-400 uppercase text-[9px] font-black">Lợi nhuận ròng:</span>
+                             <span className="text-emerald-400 font-black text-lg">{(room.netProfit || 0).toLocaleString()}đ</span>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -217,45 +293,73 @@ const RoomDetail = () => {
         <div className="lg:col-span-4 self-start">
           <div className="sticky top-28 bg-slate-900/60 backdrop-blur-3xl p-8 rounded-[2.5rem] border border-white/10 space-y-8 shadow-2xl shadow-black/60">
 
-            {/* Price */}
-            <div className="space-y-1">
-              <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Giá thuê</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black text-white tracking-tighter">
-                  {(room.price / 1_000_000).toFixed(1)}tr
-                </span>
-                <span className="text-slate-500 font-bold">vnđ / tháng</span>
-              </div>
+            {/* Price & Favorite */}
+            <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Giá thuê</span>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black text-white tracking-tighter">
+                    {(room.price / 1_000_000).toFixed(1)}tr
+                    </span>
+                    <span className="text-slate-500 font-bold">vnđ / tháng</span>
+                </div>
+                </div>
+                
+                <button 
+                  onClick={toggleFav}
+                  disabled={loadingFav}
+                  className={`p-6 rounded-[2rem] border-2 transition-all duration-300 active:scale-90 cursor-pointer ${isFavorite 
+                    ? 'bg-rose-500 border-white shadow-2xl shadow-rose-500/50 scale-105' 
+                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}
+                >
+                  <motion.div 
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.8 }}
+                    animate={{ scale: isFavorite ? [1, 1.4, 1] : 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Heart 
+                      size={32} 
+                      fill={isFavorite ? "white" : "none"} 
+                      className={isFavorite ? "text-white" : "text-slate-400"}
+                      strokeWidth={isFavorite ? 3 : 2}
+                    />
+                  </motion.div>
+                </button>
             </div>
 
             {/* Cashback */}
-            <div className="bg-emerald-500 p-6 rounded-[2rem] space-y-4 shadow-xl shadow-emerald-500/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-6 opacity-10">
-                <Zap size={80} fill="white" />
-              </div>
-              <div className="relative flex items-center gap-3">
-                <div className="bg-white/30 p-2.5 rounded-xl">
-                  <Zap size={20} className="text-white" fill="white" />
+            {room.cashbackAmount > 0 && (
+              <div className="bg-emerald-500 p-6 rounded-[2rem] space-y-4 shadow-xl shadow-emerald-500/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <Zap size={80} fill="white" />
                 </div>
-                <div>
-                  <p className="text-white font-black text-base uppercase tracking-tight leading-none">Hoàn tiền 9%</p>
-                  <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mt-0.5">Ký HĐ nhận ngay</p>
+                <div className="relative flex items-center gap-3">
+                  <div className="bg-white/30 p-2.5 rounded-xl">
+                    <Zap size={20} className="text-white" fill="white" />
+                  </div>
+                  <div>
+                    <p className="text-white font-black text-base uppercase tracking-tight leading-none">TIỀN HOÀN TRẢ</p>
+                    <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mt-0.5">Nhận ngay khi ký HĐ</p>
+                  </div>
                 </div>
+                <div className="relative text-3xl font-black text-white tracking-tighter">
+                  {formatCurrency(room.cashbackAmount)}
+                </div>
+                <p className="relative text-[10px] text-white/70 leading-relaxed font-medium">
+                  (*) Trao tiền mặt hoặc chuyển khoản ngay khi ký biên bản thuê phòng qua hệ thống.
+                </p>
               </div>
-              <div className="relative text-3xl font-black text-white tracking-tighter">
-                {formatCurrency(room.cashbackAmount)}
-              </div>
-              <p className="relative text-[10px] text-white/70 leading-relaxed font-medium">
-                (*) Trao tiền mặt hoặc chuyển khoản ngay khi ký biên bản thuê phòng qua hệ thống.
-              </p>
-            </div>
+            )}
 
             {/* CTA buttons */}
             <div className="space-y-3">
-              <button className="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-black py-4 rounded-[1.5rem] transition-all shadow-xl shadow-rose-500/20 flex items-center justify-center gap-3 cursor-pointer">
-                <MessageCircle size={20} fill="white" />
-                Messenger Tư Vấn
-              </button>
+              <a href='https://www.facebook.com/hieutm04' target='_blank' className='flex'>
+                <button className="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-black py-4 rounded-[1.5rem] transition-all shadow-xl shadow-rose-500/20 flex items-center justify-center gap-3 cursor-pointer">
+                  <MessageCircle size={20} fill="white" />
+                  Messenger Tư Vấn
+                </button>
+              </a>
 
               {bookingStep === 'idle' && (
                 <button
