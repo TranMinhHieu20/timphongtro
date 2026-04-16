@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { roomService } from '../services/api';
-import { Edit2, Trash2, Home, CheckCircle, XCircle, Search, Plus, MapPin, ExternalLink, Loader2, X } from 'lucide-react';
+import { Edit2, Trash2, Home, CheckCircle, XCircle, Search, Plus, MapPin, ExternalLink, Loader2, X, Video, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -120,10 +120,10 @@ const AdminRooms = () => {
     }
   };
 
-  const filteredRooms = rooms.filter(r => 
-    r.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.displayId && r.displayId.toLowerCase().includes(searchTerm.toLowerCase()))
+   const filteredRooms = (rooms || []).filter(r => 
+    String(r.code || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
+    String(r.address || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    String(r.displayId || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   if (loading) return (
@@ -166,10 +166,28 @@ const AdminRooms = () => {
           >
             {/* Thumbnail */}
             <div className="w-full md:w-32 h-32 rounded-2xl overflow-hidden shrink-0 border border-white/5 relative">
-              <img src={room.images?.[0]} className={`w-full h-full object-cover ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`} />
+              {room.images && room.images.length > 0 ? (
+                <img src={room.images[0]} className={`w-full h-full object-cover ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`} />
+              ) : room.videoUrl ? (
+                <video 
+                   src={`${room.videoUrl}#t=1`} 
+                   className={`w-full h-full object-cover ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`} 
+                   muted playsInline preload="metadata"
+                />
+              ) : (
+                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                  <Home className="text-slate-600" size={32} />
+                </div>
+              )}
+              
               {room.status === 'rented' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20">
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 z-10">
                   <XCircle className="text-rose-500" size={24} />
+                </div>
+              )}
+              {room.videoUrl && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none z-10">
+                  <Play size={24} className="text-white fill-white opacity-80" />
                 </div>
               )}
             </div>
@@ -186,6 +204,11 @@ const AdminRooms = () => {
                 <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest truncate ${room.status === 'available' ? 'bg-slate-800 text-slate-400' : 'bg-rose-500/10 text-rose-400'}`}>
                   {room.status === 'available' ? 'Còn phòng' : 'Hết phòng'}
                 </span>
+                {room.videoUrl && (
+                  <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1">
+                    <Video size={12} /> Video
+                  </span>
+                )}
               </div>
               <h3 className="text-lg font-black text-white truncate">{room.address}</h3>
               <div className="flex items-center gap-4 text-slate-500 text-xs font-bold mt-1">
@@ -196,23 +219,23 @@ const AdminRooms = () => {
             </div>
 
             {/* Financial Info (Admin only details) */}
-            <div className="flex flex-col gap-2 md:items-end px-6 md:border-r md:border-white/5 min-w-[150px]">
-               <div className="flex items-center gap-2">
+            <div className="w-full md:w-auto flex flex-col gap-2 md:items-end px-6 py-4 md:py-0 border-t md:border-t-0 md:border-r border-white/5 min-w-[150px]">
+               <div className="flex justify-between md:justify-end items-center gap-4 w-full">
                  <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Hoa hồng:</span>
                  <span className="text-xs font-bold text-amber-500">{(room.totalCommission || 0).toLocaleString()}đ</span>
                </div>
-               <div className="flex items-center gap-2">
+               <div className="flex justify-between md:justify-end items-center gap-4 w-full">
                  <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Hoàn khách:</span>
                  <span className="text-xs font-bold text-rose-500">{(room.cashbackAmount || 0).toLocaleString()}đ</span>
                </div>
-               <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+               <div className="flex justify-between md:justify-end items-center gap-4 w-full pt-1 border-t border-white/5">
                  <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Lợi nhuận:</span>
                  <span className="text-sm font-black text-emerald-400">{(room.netProfit || 0).toLocaleString()}đ</span>
                </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 shrink-0 p-2 md:p-0">
                <button 
                 onClick={() => handleToggleStatus(room._id, room.status)}
                 title={room.status === 'available' ? "Đổi sang Hết phòng" : "Đổi sang Còn phòng"}
@@ -235,7 +258,7 @@ const AdminRooms = () => {
                  <Trash2 size={18} />
                </button>
 
-               <div className="w-px h-8 bg-white/5 mx-2"></div>
+               <div className="hidden md:block w-px h-8 bg-white/5 mx-2"></div>
 
                <Link 
                 to={`/room/${room._id}`}

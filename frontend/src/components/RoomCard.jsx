@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Zap, Heart, Scale, BadgeCheck } from 'lucide-react';
+import { MapPin, Zap, Heart, Scale, BadgeCheck, Video, Play } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/api';
 import { motion } from 'framer-motion';
@@ -54,12 +54,24 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
       <div className="bg-slate-900 border border-white/5 rounded-[2rem] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-rose-500/30">
 
         {/* ── Image Section ─────────────────────────────────────────────────── */}
-        <div className="relative aspect-[4/5] overflow-hidden">
-          <img
-            src={room.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=2070&auto=format&fit=crop'}
-            alt={room.address}
-            className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`}
-          />
+        <div className="relative aspect-[4/5] overflow-hidden bg-slate-800">
+          {room.images && room.images.length > 0 ? (
+            <img
+              src={room.images[0]}
+              alt={room.address}
+              className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`}
+            />
+          ) : room.videoUrl ? (
+            <video 
+              src={`${room.videoUrl}#t=1`} 
+              className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${room.status === 'rented' ? 'grayscale opacity-50' : ''}`}
+              muted playsInline preload="metadata"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate-700">
+                <Home size={64} />
+            </div>
+          )}
 
           {/* Rented overlay */}
           {room.status === 'rented' && (
@@ -70,8 +82,8 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
             </div>
           )}
 
-          {/* Top-left: Compare button */}
-          <div className="absolute top-5 left-5 flex flex-col gap-2">
+          {/* Top-left: Compare button + Video Badge */}
+          <div className="absolute top-5 left-5 flex flex-col gap-2 z-10">
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCompareToggle(room); }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${isSelected ? 'bg-emerald-500 border-emerald-400 shadow-xl' : 'bg-slate-950/40 border-white/10 hover:bg-white/10'}`}
@@ -81,7 +93,23 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
                 {isSelected ? 'Đang so sánh' : 'So sánh'}
               </span>
             </button>
+
+            {room.videoUrl && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-md border border-emerald-400/50 text-white shadow-lg">
+                <Video size={10} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Video thực tế</span>
+              </div>
+            )}
           </div>
+
+          {/* Central Play Icon for Video */}
+          {room.videoUrl && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="p-5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100 duration-500">
+                <Play size={24} className="fill-white" />
+              </div>
+            </div>
+          )}
 
           {/* Top-right: Favorite + ID badges */}
           <div className="absolute top-5 right-5 flex flex-col items-end gap-2">

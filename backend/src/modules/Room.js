@@ -31,6 +31,7 @@ const RoomSchema = new mongoose.Schema({
     description: String,
     notes: [String],
     images: [String],
+    videoUrl: String,
     roomNumber: String,
     district: String,
     location: {

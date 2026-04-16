@@ -1,6 +1,6 @@
 import Room from "../modules/Room.js";
 import { parseZaloText, parsePriceValue } from "../lib/zaloParser.js";
-import { uploadImage } from "../lib/cloudinary.js";
+import { uploadImage, uploadVideo } from "../lib/cloudinary.js";
 import xlsx from "xlsx";
 import { io } from "../server.js";
 
@@ -177,18 +177,27 @@ export const importZaloRoom = async (req, res) => {
         }
 
         const images = [];
+        let videoUrl = null;
+
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 const b64 = Buffer.from(file.buffer).toString("base64");
                 const dataURI = `data:${file.mimetype};base64,${b64}`;
-                const result = await uploadImage(dataURI);
-                images.push(result.secure_url);
+                
+                if (file.mimetype.startsWith('video/')) {
+                    const result = await uploadVideo(dataURI);
+                    videoUrl = result.secure_url;
+                } else {
+                    const result = await uploadImage(dataURI);
+                    images.push(result.secure_url);
+                }
             }
         }
 
         const finalData = {
             ...roomData,
             images: images.length > 0 ? images : roomData.images,
+            videoUrl: videoUrl || roomData.videoUrl,
             displayId: await generateDisplayId()
         };
 
@@ -280,6 +289,7 @@ export const importExcelRooms = async (req, res) => {
                     commissionRate,
                     ownerInfo: { name: ownerName, phone: ownerPhone },
                     images: [],
+                    videoUrl: null
                 };
 
                 // ─ Match images to this room
@@ -294,13 +304,20 @@ export const importExcelRooms = async (req, res) => {
                 }
 
                 if (matchingImages.length > 0) {
-                    roomData.images = await Promise.all(
-                        matchingImages.map((file) => {
-                            const b64 = Buffer.from(file.buffer).toString("base64");
-                            const dataURI = `data:${file.mimetype};base64,${b64}`;
-                            return uploadImage(dataURI).then((r) => r.secure_url);
-                        })
-                    );
+                    const uploadedImages = [];
+                    for (const file of matchingImages) {
+                        const b64 = Buffer.from(file.buffer).toString("base64");
+                        const dataURI = `data:${file.mimetype};base64,${b64}`;
+                        
+                        if (file.mimetype.startsWith('video/')) {
+                            const result = await uploadVideo(dataURI);
+                            roomData.videoUrl = result.secure_url;
+                        } else {
+                            const result = await uploadImage(dataURI);
+                            uploadedImages.push(result.secure_url);
+                        }
+                    }
+                    roomData.images = uploadedImages;
                 }
 
                 roomData.displayId = await generateDisplayId();

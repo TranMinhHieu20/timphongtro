@@ -1,7 +1,8 @@
 import Conversation from '../modules/Conversation.js';
 import Message from '../modules/Message.js';
 import User from '../modules/User.js';
-import { io, userSockets } from '../server.js';
+import { io } from '../server.js';
+import { uploadImage } from '../lib/cloudinary.js';
 
 // Gửi tin nhắn
 export const sendMessage = async (req, res) => {
@@ -9,6 +10,19 @@ export const sendMessage = async (req, res) => {
         let { text, receiverId } = req.body;
         const senderId = req.user.id;
         const senderRole = req.user.role;
+        let imageUrl = null;
+
+        // Xử lý upload ảnh nếu có
+        if (req.file) {
+            const b64 = Buffer.from(req.file.buffer).toString("base64");
+            const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+            const uploadRes = await uploadImage(dataURI);
+            imageUrl = uploadRes.secure_url;
+        }
+
+        if (!text && !imageUrl) {
+            return res.status(400).json({ message: "Tin nhắn không được để trống" });
+        }
 
         // Quy tắc: User chỉ có thể nhắn cho Admin
         if (senderRole === 'user' && receiverId === 'admin') {
@@ -16,7 +30,6 @@ export const sendMessage = async (req, res) => {
             if (!admin) return res.status(404).json({ message: "Không tìm thấy Admin" });
             receiverId = admin._id;
         } else if (senderRole === 'user' && receiverId !== 'admin') {
-            // Trường hợp user cố tình gửi receiverId là một User khác
             const receiver = await User.findById(receiverId);
             if (receiver?.role !== 'admin') {
                 return res.status(403).json({ message: "Bạn chỉ có thể nhắn tin cho Admin" });
@@ -30,6 +43,7 @@ export const sendMessage = async (req, res) => {
             if (receiver.role === 'admin' && senderId !== receiverId.toString()) {
                 return res.status(403).json({ message: "Admin không thể nhắn tin cho Admin khác" });
             }
+            receiverId = receiver._id; // Ensure it's an ObjectId/string
         }
 
         // Tìm hoặc tạo Conversation
@@ -47,21 +61,35 @@ export const sendMessage = async (req, res) => {
         const newMessage = new Message({
             conversationId: conversation._id,
             sender: senderId,
-            text
+            text,
+            image: imageUrl
         });
 
         await newMessage.save();
 
         // Cập nhật tin nhắn cuối cùng trong Conversation
         conversation.lastMessage = newMessage._id;
+        if (newMessage.sender.toString() !== senderId.toString()) {
+             // Logic unread: Usually we increment for the OTHER person
+             // But here we'll just track if it was an admin incoming
+        }
         conversation.unreadCount += 1; 
         await conversation.save();
 
-        // Emit realtime event to the receiver's room (reaches all their tabs/devices)
-        io.to(receiverId.toString()).emit('newMessage', newMessage);
+        // Emit realtime event to the receiver's room
+        const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'username avatar role');
+        io.to(receiverId.toString()).emit('newMessage', populatedMessage);
+        
+        // Phát thông báo cho người nhận (để hiện toast/alert)
+        io.to(receiverId.toString()).emit('newMessageNotification', {
+            sender: req.user.username,
+            text: text || "Đã gửi một ảnh 📷",
+            conversationId: conversation._id
+        });
 
-        res.status(201).json(newMessage);
+        res.status(201).json(populatedMessage);
     } catch (error) {
+        console.error("SendMessage Error:", error);
         res.status(500).json({ message: error.message });
     }
 };

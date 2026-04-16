@@ -12,6 +12,11 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
+  // Đảm bảo menu luôn đóng khi chuyển trạng thái đăng nhập
+  useEffect(() => {
+    setShowDropdown(false);
+  }, [isAuthenticated]);
+
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);

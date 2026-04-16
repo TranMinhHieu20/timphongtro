@@ -9,15 +9,20 @@ const router = express.Router();
 
 // Multer setup for memory storage
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+    storage,
+    limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB
+    }
+});
 
 router.get("/", optionalProtect, getAllRooms);
 router.get("/search", optionalProtect, searchRooms);
 router.get("/:id", optionalProtect, getRoomById);
 
 // Import route (Admin only)
-// For Zalo text + images (multiple images)
-router.post("/import", protectRoute, isAdmin, upload.array("images", 10), importZaloRoom);
+// For Zalo text + images (multiple images + video)
+router.post("/import", protectRoute, isAdmin, upload.array("images", 50), importZaloRoom);
 
 // For Excel import (file + optional images)
 router.post("/import-excel", protectRoute, isAdmin, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'images', maxCount: 50 }]), importExcelRooms);

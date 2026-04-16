@@ -25,6 +25,24 @@ export const uploadImage = async (file) => {
 };
 
 /**
+ * Upload a video buffer or file path to Cloudinary
+ * @param {Buffer|String} file - Buffer or path to the file
+ * @returns {Promise<Object>} Cloudinary upload result
+ */
+export const uploadVideo = async (file) => {
+  try {
+    const result = await cloudinary.uploader.upload(file, {
+      folder: 'timphongtro/videos',
+      resource_type: 'video',
+    });
+    return result;
+  } catch (error) {
+    console.error('Cloudinary Video Upload Error:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete an image from Cloudinary
  * @param {String} publicId - The public ID of the image
  */

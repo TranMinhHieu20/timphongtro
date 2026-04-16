@@ -30,7 +30,9 @@ export const registerUser = async (req, res)=>{
             _id: newUser._id,
             username: newUser.username,
             email: newUser.email, 
-            role: role
+            role: role,
+            avatar: newUser.avatar,
+            favorites: newUser.favorites || []
         }})
     } catch (error) {
         console.log('Error registerUser in auth.controller.js', error)
@@ -60,6 +62,9 @@ export const loginUser  = async (req, res)=>{
             _id: user._id, 
             username: user.username,
             email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            favorites: user.favorites || []
         }})
     } catch (error) {
         console.log('Error loginUser in auth.controller.js', error)

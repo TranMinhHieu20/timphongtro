@@ -21,6 +21,7 @@ import SettingsModal from './components/SettingsModal';
 import ChatBox from './components/ChatBox';
 import AnnouncementBar from './components/AnnouncementBar';
 import GlobalLiveNotification from './components/GlobalLiveNotification';
+import ChatToast from './components/ChatToast';
 
 function AppContent() {
   const { user, isAdmin, isAuthenticated } = useAuth();
@@ -72,6 +73,7 @@ function AppContent() {
 
         <ChatBox currentUser={user} />
         <GlobalLiveNotification />
+        <ChatToast />
       </div>
     </Router>
   );

@@ -1,41 +1,48 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, User, Sparkles, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, User, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import { chatService } from '../services/api';
 import { io } from 'socket.io-client';
+import { useAuth } from '../context/AuthContext';
 
 const ChatBox = ({ currentUser }) => {
+  const { socket } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
   const [sending, setSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef(null);
-  const socketRef = useRef(null);
 
-  // Socket Connection
+  // Use Global Socket Connection
   useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
-      const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
-      socketRef.current = io(socketUrl, {
-        query: { userId: currentUser._id }
-      });
-
-      socketRef.current.on('newMessage', (message) => {
-        // Play notification sound
-        new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(e => {});
-        
+    if (socket && currentUser && currentUser.role !== 'admin') {
+      const handleNewMessage = (message) => {
         setMessages(prev => [...prev, message]);
         if (!isOpen) {
           setUnreadCount(prev => prev + 1);
         }
-      });
-
-      return () => {
-        if (socketRef.current) socketRef.current.disconnect();
       };
+
+      socket.on('newMessage', handleNewMessage);
+      return () => socket.off('newMessage', handleNewMessage);
     }
-  }, [currentUser]);
+  }, [socket, currentUser, isOpen]);
+
+  // Handle global open event from Toast
+  useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener('openChat', handleOpen);
+    return () => window.removeEventListener('openChat', handleOpen);
+  }, []);
+
+  // Sync open state to global for Toast suppression
+  useEffect(() => {
+    window.isChatOpen = isOpen;
+  }, [isOpen]);
 
   // Load initial messages when opened
   useEffect(() => {
@@ -60,18 +67,36 @@ const ChatBox = ({ currentUser }) => {
     }
   };
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputText.trim() || sending) return;
+    if ((!inputText.trim() && !selectedImage) || sending) return;
 
     setSending(true);
     try {
-      const res = await chatService.sendMessage({
-        text: inputText,
-        receiverId: 'admin'
-      });
+      const formData = new FormData();
+      if (inputText.trim()) formData.append('text', inputText);
+      if (selectedImage) formData.append('image', selectedImage);
+      formData.append('receiverId', 'admin');
+
+      const res = await chatService.sendMessage(formData);
       setMessages(prev => [...prev, res.data]);
       setInputText('');
+      resetImage();
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
@@ -82,14 +107,14 @@ const ChatBox = ({ currentUser }) => {
   if (currentUser?.role === 'admin') return null; // Admin uses a different UI
 
   return (
-    <div className="fixed bottom-8 right-8 z-[999]">
+    <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[999] flex flex-col items-end">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.9, transformOrigin: 'bottom right' }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="absolute bottom-20 right-0 w-[350px] h-[500px] bg-slate-900 border border-white/10 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl"
+            className="absolute bottom-[72px] right-0 w-[calc(100vw-2rem)] sm:w-[350px] md:w-[380px] h-[70vh] md:h-[600px] bg-slate-900 border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden backdrop-blur-xl"
           >
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-rose-500/10 to-transparent border-b border-white/5 flex items-center justify-between">
@@ -124,26 +149,95 @@ const ChatBox = ({ currentUser }) => {
                 messages.map((msg, idx) => (
                   <div 
                     key={idx}
-                    className={`flex ${msg.sender === currentUser?._id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.sender?._id?.toString() === currentUser?._id?.toString() || msg.sender === currentUser?._id ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm font-medium ${
-                      msg.sender === currentUser?._id 
-                        ? 'bg-rose-500 text-white rounded-tr-none shadow-lg shadow-rose-500/10' 
-                        : 'bg-white/5 text-slate-200 border border-white/5 rounded-tl-none'
-                    }`}>
-                      {msg.text}
+                    <div className={`max-w-[80%] space-y-2`}>
+                      <div className={`p-3 rounded-2xl text-sm font-medium ${
+                        msg.sender?._id?.toString() === currentUser?._id?.toString() || msg.sender === currentUser?._id
+                          ? 'bg-rose-500 text-white rounded-tr-none shadow-lg shadow-rose-500/10' 
+                          : 'bg-white/5 text-slate-200 border border-white/5 rounded-tl-none'
+                      }`}>
+                        {msg.text}
+                        {msg.image && (
+                          <div 
+                            className={`mt-2 rounded-xl overflow-hidden cursor-zoom-in active:scale-95 transition-transform ${msg.text ? '' : '-m-1'}`}
+                            onClick={() => setPreviewImage(msg.image)}
+                          >
+                             <img src={msg.image} alt="Chat" className="max-w-full h-auto object-cover rounded-lg" />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
+            {/* Full Screen Image Preview */}
+            <AnimatePresence>
+                {previewImage && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setPreviewImage(null)}
+                        className="fixed inset-0 z-[2000] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-10 cursor-zoom-out"
+                    >
+                        <motion.img 
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.9 }}
+                            src={previewImage} 
+                            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                        />
+                        <button className="absolute top-10 right-10 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all">
+                            <X size={24} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Image Preview Overlay before sending */}
+            <AnimatePresence>
+                {imagePreview && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="px-4 py-2 border-t border-white/5 bg-slate-900/80 flex items-center justify-between"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10">
+                                <img src={imagePreview} className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[150px]">{selectedImage?.name}</span>
+                        </div>
+                        <button onClick={resetImage} className="p-2 bg-rose-500/10 text-rose-500 rounded-full hover:bg-rose-500 hover:text-white transition-colors">
+                            <X size={14} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Input Area */}
-            <form onSubmit={handleSend} className="p-4 bg-slate-950/50 border-t border-white/5 flex gap-2 items-center">
+            <form onSubmit={handleSend} className="p-4 bg-slate-950/50 border-t border-white/5 flex gap-2 items-center relative">
                {!currentUser ? (
                   <p className="text-[10px] text-slate-500 text-center w-full font-bold uppercase tracking-widest">Vui lòng đăng nhập để chat</p>
                ) : (
                  <>
+                    <input 
+                        type="file" 
+                        accept="image/*"
+                        className="hidden"
+                        id="chat-image-upload"
+                        onChange={handleImageSelect}
+                    />
+                    <label 
+                        htmlFor="chat-image-upload"
+                        className="p-3 text-slate-500 hover:text-white transition-colors cursor-pointer"
+                    >
+                        <ImageIcon size={20} />
+                    </label>
                     <input 
                         type="text"
                         placeholder="Nhập nội dung..."
@@ -153,7 +247,7 @@ const ChatBox = ({ currentUser }) => {
                     />
                     <button 
                         type="submit"
-                        disabled={sending || !inputText.trim()}
+                        disabled={sending || (!inputText.trim() && !selectedImage)}
                         className="p-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-rose-500/20"
                     >
                         {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

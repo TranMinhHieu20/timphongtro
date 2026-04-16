@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { roomService } from '../services/api';
-import { FileText, Plus, CheckCircle2, AlertCircle, Sparkles, Image as ImageIcon, FileUp, X, Loader2 } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, AlertCircle, Sparkles, Image as ImageIcon, FileUp, X, Loader2, Video, Play } from 'lucide-react';
 import {motion} from 'framer-motion';
 
 const AdminImport = () => {
   const [activeTab, setActiveTab] = useState('zalo'); // 'zalo' or 'excel'
   const [text, setText] = useState('');
   const [images, setImages] = useState([]);
+  const [video, setVideo] = useState(null);
   const [excelFile, setExcelFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '', details: null });
@@ -46,6 +47,11 @@ const AdminImport = () => {
     setImages((prev) => [...prev, ...files]);
   };
 
+  const handleVideoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) setVideo(file);
+  };
+
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
   };
@@ -69,7 +75,7 @@ const AdminImport = () => {
 
     lines.forEach(line => {
         if (line.match(/^Giá\s*:/i)) {
-            const pText = line.split(':')[1].trim().toLowerCase();
+            const pText = (line.split(':')[1] || '').trim().toLowerCase();
             let val = 0;
             if (pText.includes('tr')) {
                 const parts = pText.split('tr');
@@ -87,11 +93,11 @@ const AdminImport = () => {
             currentSection = '';
         }
         else if (line.match(/^Mã\s*:/i)) {
-            code = line.split(':')[1].trim();
+            code = (line.split(':')[1] || '').trim();
             currentSection = '';
         }
         else if (line.match(/^Phòng\s*:/i)) {
-            roomNum = line.split(':')[1].trim();
+            roomNum = (line.split(':')[1] || '').trim();
             currentSection = '';
         }
         else if (line.match(/^Hoa\s*hồng\s*:/i)) {
@@ -100,18 +106,18 @@ const AdminImport = () => {
             currentSection = '';
         }
         else if (line.match(/^Hoàn\s*(?:khách|trả)\s*:/i)) {
-            const cText = line.split(':')[1].trim().toLowerCase();
+            const cText = (line.split(':')[1] || '').trim().toLowerCase();
             if (cText.includes('tr')) cashbackAmountParsed = parseFloat(cText) * 1000000;
             else if (cText.includes('k')) cashbackAmountParsed = parseFloat(cText) * 1000;
             else cashbackAmountParsed = parseFloat(cText.replace(/[^0-9.]/g, '')) || 0;
             currentSection = '';
         }
         else if (line.match(/^Địa\s*chỉ\s*:/i)) {
-            address = line.split(':')[1].trim();
+            address = (line.split(':')[1] || '').trim();
             currentSection = '';
         }
         else if (line.match(/^Trạng\s*thái\s*:/i)) {
-            const rawStatus = line.split(':')[1].trim();
+            const rawStatus = (line.split(':')[1] || '').trim();
             availabilityText = rawStatus;
             const lower = rawStatus.toLowerCase();
             if (lower.includes('hết') || lower.includes('thuê')) status = 'rented';
@@ -169,6 +175,10 @@ const AdminImport = () => {
       formDataToSend.append('images', image);
     });
 
+    if (video) {
+        formDataToSend.append('images', video); // Send as part of 'images' array for generic multer to catch
+    }
+
     try {
       const res = await roomService.importZalo(formDataToSend);
       setMessage({ type: 'success', text: `Đã đăng thành công phòng: ${res.data.room.displayId}` });
@@ -178,6 +188,7 @@ const AdminImport = () => {
         address: '', status: 'available', description: '', notes: '', cashbackAmount: 0
       });
       setImages([]);
+      setVideo(null);
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Có lỗi xảy ra khi nhập dữ liệu' });
     } finally {
@@ -196,6 +207,10 @@ const AdminImport = () => {
       formData.append('images', image);
     });
 
+    if (video) {
+        formData.append('images', video);
+    }
+
     try {
       const res = await roomService.importExcel(formData);
       const { results } = res.data;
@@ -206,6 +221,7 @@ const AdminImport = () => {
       });
       setExcelFile(null);
       setImages([]);
+      setVideo(null);
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Có lỗi xảy ra khi tải file Excel' });
     } finally {
@@ -257,19 +273,53 @@ const AdminImport = () => {
               />
               
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center gap-6">
                    <label className="flex items-center gap-2 text-slate-400 font-bold cursor-pointer hover:text-rose-400 transition-colors">
                       <ImageIcon size={20} />
-                      <span>Thêm hình ảnh ({images.length})</span>
+                      <span>Ảnh ({images.length})</span>
                       <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
                    </label>
-                   {images.length > 0 && (
-                     <button onClick={() => setImages([])} className="text-xs text-rose-500 font-black uppercase hover:underline">Xóa tất cả</button>
+
+                   <label className="flex items-center gap-2 text-emerald-400 font-bold cursor-pointer hover:text-emerald-300 transition-colors">
+                      <Video size={20} />
+                      <span>{video ? 'Đã chọn Video' : 'Thêm Video'}</span>
+                      <input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" />
+                   </label>
+
+                   {(images.length > 0 || video) && (
+                     <button 
+                        onClick={() => { setImages([]); setVideo(null); }} 
+                        className="text-xs text-rose-500 font-black uppercase hover:underline ml-auto"
+                      >
+                        Xóa tất cả
+                      </button>
                    )}
                 </div>
                 
-                {images.length > 0 && (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                    {/* Video Preview */}
+                    {video && (
+                        <div className="relative aspect-square rounded-xl overflow-hidden group/vid border-2 border-emerald-500/50">
+                            <video 
+                                src={`${URL.createObjectURL(video)}#t=0.1`} 
+                                className="w-full h-full object-cover" 
+                                muted 
+                                playsInline 
+                                preload="metadata"
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                                <Play size={24} className="text-white fill-white" />
+                            </div>
+                            <button 
+                                onClick={() => setVideo(null)}
+                                className="absolute inset-0 bg-rose-500/80 flex items-center justify-center opacity-0 group-hover/vid:opacity-100 transition-opacity"
+                            >
+                                <X size={20} className="text-white" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Image Previews */}
                     {images.map((img, i) => (
                       <div key={i} className="relative aspect-square rounded-xl overflow-hidden group/img border border-white/10">
                          <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" alt="Preview" />
@@ -281,8 +331,7 @@ const AdminImport = () => {
                          </button>
                       </div>
                     ))}
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* STRUCTURED FILL FORM (Based on Mockup) */}
@@ -451,34 +500,68 @@ const AdminImport = () => {
                      )}
                   </div>
                </div>
-                <div className="w-full max-w-md space-y-6">
-                   <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-slate-400 font-bold cursor-pointer hover:text-rose-400 transition-colors">
-                         <ImageIcon size={20} />
-                         <span>Thêm hình ảnh ({images.length})</span>
-                         <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
-                      </label>
-                      {images.length > 0 && (
-                        <button onClick={() => setImages([])} className="text-xs text-rose-500 font-black uppercase hover:underline">Xóa tất cả</button>
-                      )}
-                   </div>
-                   
-                   {images.length > 0 && (
-                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                       {images.map((img, i) => (
-                         <div key={i} className="relative aspect-square rounded-xl overflow-hidden group/img border border-white/10">
-                            <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" alt="Preview" />
-                            <button 
-                               onClick={() => removeImage(i)}
-                               className="absolute inset-0 bg-rose-500/80 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                            >
-                               <X size={16} className="text-white" />
-                            </button>
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                </div>
+                 <div className="w-full max-w-md space-y-6">
+                    <div className="flex flex-wrap items-center gap-6">
+                       <label className="flex items-center gap-2 text-slate-400 font-bold cursor-pointer hover:text-rose-400 transition-colors">
+                          <ImageIcon size={20} />
+                          <span>Ảnh ({images.length})</span>
+                          <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                       </label>
+
+                       <label className="flex items-center gap-2 text-emerald-400 font-bold cursor-pointer hover:text-emerald-300 transition-colors">
+                          <Video size={20} />
+                          <span>Video</span>
+                          <input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" />
+                       </label>
+
+                       {(images.length > 0 || video) && (
+                         <button 
+                            onClick={() => { setImages([]); setVideo(null); }} 
+                            className="text-xs text-rose-500 font-black uppercase hover:underline ml-auto"
+                          >
+                            Xóa tất cả
+                          </button>
+                       )}
+                    </div>
+                    
+                    {(images.length > 0 || video) && (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                        {/* Video Preview */}
+                        {video && (
+                            <div className="relative aspect-square rounded-xl overflow-hidden group/vid border-2 border-emerald-500/50">
+                                <video 
+                                    src={`${URL.createObjectURL(video)}#t=0.1`} 
+                                    className="w-full h-full object-cover" 
+                                    muted 
+                                    playsInline 
+                                    preload="metadata"
+                                />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                                    <Play size={20} className="text-white fill-white" />
+                                </div>
+                                <button 
+                                    onClick={() => setVideo(null)}
+                                    className="absolute inset-0 bg-rose-500/80 flex items-center justify-center opacity-0 group-hover/vid:opacity-100 transition-opacity"
+                                >
+                                    <X size={16} className="text-white" />
+                                </button>
+                            </div>
+                        )}
+
+                        {images.map((img, i) => (
+                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden group/img border border-white/10">
+                             <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" alt="Preview" />
+                             <button 
+                                onClick={() => removeImage(i)}
+                                className="absolute inset-0 bg-rose-500/80 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                             >
+                                <X size={16} className="text-white" />
+                             </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
                <button 
                 onClick={handleImportExcel}
                 disabled={loading || !excelFile}

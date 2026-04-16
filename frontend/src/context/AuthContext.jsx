@@ -8,6 +8,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [lastNotification, setLastNotification] = useState(null);
+    const [socket, setSocket] = useState(null);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -25,19 +27,39 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    // Socket listener for realtime profile/favorite updates
+    // Global Socket Connection
     useEffect(() => {
         if (user?._id) {
             const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
-            const socket = io(socketUrl, {
+            const newSocket = io(socketUrl, {
                 query: { userId: user._id }
             });
 
-            socket.on('favoriteUpdate', (newFavorites) => {
+            setSocket(newSocket);
+
+            newSocket.on('favoriteUpdate', (newFavorites) => {
                 setUser(prev => prev ? { ...prev, favorites: newFavorites } : null);
             });
 
-            return () => socket.disconnect();
+            // Global Chat Notification Listener
+            newSocket.on('newMessageNotification', (data) => {
+                // DON'T show notification if chat is already open or on /admin/chat
+                if (window.isChatOpen || (user.role === 'admin' && window.location.pathname === '/admin/chat')) return;
+
+                // Play notification sound
+                new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(e => {});
+                
+                setLastNotification(data);
+                
+                // Auto hide after 6 seconds
+                setTimeout(() => {
+                    setLastNotification(null);
+                }, 6000);
+            });
+
+            return () => newSocket.disconnect();
+        } else {
+            setSocket(null);
         }
     }, [user?._id]);
 
@@ -58,6 +80,8 @@ export const AuthProvider = ({ children }) => {
         setUser(prev => ({ ...prev, ...userData }));
     };
 
+    const clearNotification = () => setLastNotification(null);
+
     const value = {
         user,
         isAuthenticated,
@@ -65,7 +89,10 @@ export const AuthProvider = ({ children }) => {
         isAdmin: user?.role === 'admin',
         login,
         logout,
-        updateUser
+        updateUser,
+        socket,
+        lastNotification,
+        clearNotification
     };
 
     return (
