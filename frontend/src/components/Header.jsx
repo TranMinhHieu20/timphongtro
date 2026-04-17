@@ -152,7 +152,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-4 w-64 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-50 overflow-hidden"
+                        className="absolute right-0 mt-4 w-64 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-999 overflow-hidden"
                     >
                         <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border-b border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full translate-x-10 -translate-y-10 pointer-events-none"></div>
