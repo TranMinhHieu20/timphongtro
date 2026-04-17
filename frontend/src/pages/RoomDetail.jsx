@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { roomService, leadService, userService } from '../services/api';
-import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw, Sparkles, Heart, Video, Maximize, X, ChevronRight, Play } from 'lucide-react';
+import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw, Sparkles, Heart, Video, Maximize, X, ChevronRight, Play, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import RoomCard from '../components/RoomCard';
 
 const RoomDetail = () => {
   const { id } = useParams();
@@ -13,6 +14,11 @@ const RoomDetail = () => {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [statusLoading, setStatusLoading] = useState(false);
+
+  // Related rooms
+  const [relatedRooms, setRelatedRooms] = useState([]);
+  const [relatedPage, setRelatedPage] = useState(1);
+  const [relatedPerPage, setRelatedPerPage] = useState(() => window.innerWidth >= 768 ? 6 : 4);
 
   // Combine video and images into a single media array
   const allMedia = room ? [
@@ -70,7 +76,23 @@ const RoomDetail = () => {
 
     fetchRoom();
     fetchLead();
+
+    // Fetch related rooms
+    roomService.getAll({}).then(res => {
+      const all = res.data || [];
+      const others = all.filter(r => r._id !== id);
+      // Prefer same-district rooms first
+      setRelatedRooms(others);
+    }).catch(() => {});
   }, [id, isAuthenticated, user]);
+
+  // Responsive items-per-page for related rooms
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handler = (e) => { setRelatedPerPage(e.matches ? 6 : 4); setRelatedPage(1); };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   const toggleFav = async () => {
     if (!isAuthenticated) return navigate('/login', { state: { from: location.pathname } });
@@ -137,13 +159,16 @@ const RoomDetail = () => {
   return (
     <div className="space-y-12 animate-in fade-in duration-700">
 
-      {/* Back */}
-      <Link to="/" className="inline-flex items-center gap-3 text-slate-500 hover:text-white transition-all font-bold group cursor-pointer">
+      {/* Back — dùng history để về đúng trang trước */}
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-3 text-slate-500 hover:text-white transition-all font-bold group cursor-pointer"
+      >
         <div className="p-2 rounded-full bg-white/5 group-hover:bg-rose-500 transition-colors">
           <ChevronLeft size={18} />
         </div>
         Quay lại
-      </Link>
+      </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
 
@@ -356,11 +381,11 @@ const RoomDetail = () => {
             <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
                 <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Giá thuê</span>
-                <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black text-white tracking-tighter">
+                <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter">
                     {(room.price / 1_000_000).toFixed(1)}tr
                     </span>
-                    <span className="text-slate-500 font-bold">vnđ / tháng</span>
+                    <span className="text-slate-500 font-bold whitespace-nowrap">vnđ / tháng</span>
                 </div>
                 </div>
                 
@@ -602,6 +627,98 @@ const RoomDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Related Rooms Section ── */}
+      {relatedRooms.length > 0 && (() => {
+        // Sort: same district first
+        const sorted = room
+          ? [
+              ...relatedRooms.filter(r => r.address?.toLowerCase().includes(
+                (room.address?.match(/quận ([^,]+)/i)?.[1] || '').toLowerCase()
+              ) && room.address?.match(/quận ([^,]+)/i)),
+              ...relatedRooms.filter(r => !r.address?.toLowerCase().includes(
+                (room.address?.match(/quận ([^,]+)/i)?.[1] || '').toLowerCase()
+              ) || !room.address?.match(/quận ([^,]+)/i))
+            ]
+          : relatedRooms;
+
+        const totalRelatedPages = Math.ceil(sorted.length / relatedPerPage);
+        const startIdx = (relatedPage - 1) * relatedPerPage;
+        const pageRooms = sorted.slice(startIdx, startIdx + relatedPerPage);
+
+        return (
+          <div id="related-rooms" className="space-y-8 pt-4 border-t border-white/5">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-1.5 h-7 bg-rose-500 rounded-full shadow-[0_0_15px_rgba(244,63,94,0.4)]" />
+                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Phòng liên quan</h2>
+              </div>
+              <span className="text-slate-500 text-xs font-bold">{sorted.length} phòng khác</span>
+            </div>
+
+            {/* Grid */}
+            <motion.div
+              key={relatedPage}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8"
+            >
+              {pageRooms.map(r => (
+                <RoomCard
+                  key={r._id}
+                  room={r}
+                  onCompareToggle={() => {}}
+                  isSelected={false}
+                />
+              ))}
+            </motion.div>
+
+            {/* Pagination */}
+            {totalRelatedPages > 1 && (
+              <div className="flex justify-center items-center gap-2">
+                <button
+                  onClick={() => { setRelatedPage(p => Math.max(1, p - 1)); window.scrollTo({ top: document.querySelector('#related-rooms')?.offsetTop - 100 || 0, behavior: 'smooth' }); }}
+                  disabled={relatedPage === 1}
+                  className="px-5 py-3 bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-[1.5rem] text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase"
+                >
+                  Trước
+                </button>
+                <div className="flex gap-2">
+                  {Array.from({ length: totalRelatedPages }).map((_, idx) => {
+                    if (idx === 0 || idx === totalRelatedPages - 1 || (idx >= relatedPage - 2 && idx <= relatedPage)) {
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setRelatedPage(idx + 1)}
+                          className={`w-10 h-10 flex items-center justify-center rounded-[1.2rem] font-black text-sm transition-all ${
+                            relatedPage === idx + 1
+                              ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-lg shadow-rose-500/20'
+                              : 'bg-slate-900/60 border border-white/5 text-slate-400 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    } else if (idx === relatedPage - 3 || idx === relatedPage + 1) {
+                      return <span key={idx} className="w-10 h-10 flex items-center justify-center text-slate-500 font-black">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => { setRelatedPage(p => Math.min(totalRelatedPages, p + 1)); window.scrollTo({ top: document.querySelector('#related-rooms')?.offsetTop - 100 || 0, behavior: 'smooth' }); }}
+                  disabled={relatedPage === totalRelatedPages}
+                  className="px-5 py-3 bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-[1.5rem] text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase"
+                >
+                  Tiếp
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

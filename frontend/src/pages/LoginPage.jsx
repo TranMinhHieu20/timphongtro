@@ -30,8 +30,8 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto py-12 fade-in">
-      <div className="glass p-10 space-y-8 border-rose-500/10">
+    <div className="max-w-md mx-auto py-8 sm:py-12 fade-in">
+      <div className="glass p-6 sm:p-10 space-y-6 sm:space-y-8 border-rose-500/10">
         <div className="text-center space-y-2">
           <div className="bg-rose-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-rose-500/20 rotate-12 group-hover:rotate-0 transition-transform">
             <LogIn className="text-white" size={32} />
@@ -55,7 +55,7 @@ const LoginPage = () => {
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
+                placeholder="user@gmail.com"
                 className="w-full bg-slate-900 border border-white/5 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all"
                 required
               />

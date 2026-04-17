@@ -475,7 +475,7 @@ const AdminImport = () => {
                </div>
                <div className="space-y-4 max-w-sm">
                   <h3 className="text-2xl font-black text-white">Tải lên tệp Excel</h3>
-                  <p className="text-slate-400 font-medium leading-relaxed">Đảm bảo các cột được định dạng đúng: Mã, Phòng, Địa chỉ, Giá, Trạng thái, Nội thất, Dịch vụ, Lưu ý.</p>
+                  <p className="text-slate-400 font-medium leading-relaxed">Đảm bảo các cột được định dạng đúng: Mã, Phòng, Địa chỉ, Giá, Trạng thái, Nội thất, Dịch vụ, Lưu ý, Hoa hồng.</p>
                </div>
 
                <div className="w-full max-w-md relative group">

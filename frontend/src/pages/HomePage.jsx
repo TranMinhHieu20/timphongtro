@@ -21,6 +21,11 @@ const HomePage = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [showOfferModal, setShowOfferModal] = useState(false);
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => window.innerWidth >= 768 ? 9 : 8);
+  const [districtOpen, setDistrictOpen] = useState(false);
+
   const [filters, setFilters] = useState({
     district: '',
     priceRange: [0, 20000000],
@@ -47,6 +52,17 @@ const HomePage = () => {
       setLoading(false);
     }
   };
+
+  // Responsive items-per-page: 9 on desktop (md+), 8 on mobile
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handleChange = (e) => {
+      setItemsPerPage(e.matches ? 9 : 8);
+      setCurrentPage(1);
+    };
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     fetchRooms(sortBy, userLocation, searchParam);
@@ -120,10 +136,36 @@ const HomePage = () => {
     }
 
     setFilteredRooms(result);
+    // Reset page on filter/rooms changes
+    setCurrentPage(1);
   }, [filters, rooms]);
+
+  // Also reset to page 1 when itemsPerPage changes (screen resize)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const districts = ["Cầu Giấy", "Đống Đa", "Thanh Xuân", "Hai Bà Trưng", "Hoàn Kiếm", "Ba Đình", "Nam Từ Liêm", "Bắc Từ Liêm"];
   const commonAmenities = ["Điều hòa", "Nóng lạnh", "Máy giặt", "Tủ lạnh", "Ban công", "Thang máy", "Khép kín"];
+
+  // Tính số phòng theo quận (từ toàn bộ rooms, không bị ảnh hưởng bởi filter khác)
+  const roomCountByDistrict = districts.reduce((acc, d) => {
+    acc[d] = rooms.filter(r => r.address?.toLowerCase().includes(d.toLowerCase())).length;
+    return acc;
+  }, {});
+  const totalRoomCount = rooms.length;
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRooms = filteredRooms.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
+
+  const paginate = (pageNumber) => {
+      setCurrentPage(pageNumber);
+      // Scroll smoothly to top of results grid
+      window.scrollTo({ top: document.getElementById('search-results')?.offsetTop - 100, behavior: 'smooth' });
+  };
 
   const toggleCompareRoom = (room) => {
     setCompareRooms(prev => {
@@ -167,7 +209,7 @@ const HomePage = () => {
               transition={{ delay: 0.1 }}
               className="space-y-4"
             >
-              <h1 className="text-5xl md:text-6xl xl:text-8xl font-black text-white leading-[0.95] tracking-tight">
+              <h1 className="text-4xl md:text-6xl xl:text-8xl font-black text-white leading-[0.95] tracking-tight">
                 Thuê phòng, <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-orange-400 to-amber-300">Hoàn tiền 9%</span>
               </h1>
@@ -279,38 +321,101 @@ const HomePage = () => {
       </AnimatePresence>
  
       {/* Advanced Filter Bar */}
-      <section className="bg-slate-900/40 border border-white/5 rounded-[3rem] p-8 md:p-12 space-y-10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        
-        <div className="flex flex-col md:flex-row  items-center md:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="w-1.5 h-8 bg-rose-500 rounded-full shadow-[0_0_15px_rgba(244,63,94,0.5)]"></div>
-            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Bộ lọc thông minh</h3>
-          </div>
-          <button 
-            onClick={() => setFilters({ district: '', priceRange: [0, 20000000], amenities: [] })}
-            className="flex items-center gap-2 text-[10px] px-4 py-2 font-black text-green-400 hover:text-green-600 hover:bg-green-400/10 uppercase tracking-[0.2em] transition-all group cursor-pointer"
-          >
-            <Loader size={14} className="group-hover:rotate-360 transition-transform" />
-            Làm mới bộ lọc
-          </button>
+      <section className="bg-slate-900/40 border border-white/5 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 space-y-8 md:space-y-10 shadow-2xl relative">
+        {/* Glow effect — isolated overflow so dropdown is not clipped */}
+        <div className="absolute inset-0 rounded-[2rem] md:rounded-[3rem] overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10">
-          {/* District Filter */}
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="w-1.5 h-8 bg-rose-500 rounded-full shadow-[0_0_15px_rgba(244,63,94,0.5)]"></div>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Bộ lọc thông minh</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-999">
+          {/* District Filter — Custom Dropdown */}
           <div className="lg:col-span-5 space-y-5">
              <div className="flex items-center gap-2 px-1">
                 <MapPin size={14} className="text-rose-500" />
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Khu vực ưu tiên</label>
              </div>
-             <select 
-              value={filters.district}
-              onChange={(e) => setFilters({...filters, district: e.target.value})}
-              className="w-full bg-slate-950 border border-white/10 rounded-[1.5rem] p-5 text-white font-bold appearance-none cursor-pointer focus:ring-2 focus:ring-rose-500/20 transition-all hover:border-white/20"
-             >
-               <option value="">Tất cả Hà Nội</option>
-               {districts.map(d => <option key={d} value={d}>{d}</option>)}
-             </select>
+             <div className="relative">
+               {/* Trigger button */}
+               <button
+                 type="button"
+                 onClick={() => setDistrictOpen(prev => !prev)}
+                 className="w-full bg-slate-950 border border-white/10 rounded-[1.5rem] p-5 text-white font-bold flex items-center justify-between cursor-pointer focus:ring-2 focus:ring-rose-500/20 transition-all hover:border-white/20"
+               >
+                 <span className={filters.district ? 'text-white' : 'text-slate-400'}>
+                   {filters.district || 'Tất cả Hà Nội'}
+                 </span>
+                 <div className="flex items-center gap-3">
+                   {filters.district && (
+                     <span className="bg-rose-500/20 text-rose-400 text-[10px] font-black px-2.5 py-1 rounded-full border border-rose-500/20">
+                       {roomCountByDistrict[filters.district]} phòng
+                     </span>
+                   )}
+                   <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${districtOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                 </div>
+               </button>
+
+               {/* Dropdown list */}
+               {districtOpen && (
+                 <div className="absolute top-full left-0 right-0 mt-2 bg-slate-950 border border-white/10 rounded-[1.5rem] overflow-hidden z-50 shadow-2xl shadow-black/50">
+                   {/* Tất cả */}
+                   <button
+                     type="button"
+                     onClick={() => { setFilters({...filters, district: ''}); setDistrictOpen(false); }}
+                     className={`w-full flex items-center justify-between px-5 py-4 transition-all cursor-pointer text-left group ${
+                       filters.district === '' ? 'bg-rose-500/15 text-rose-400' : 'text-white hover:bg-white/5'
+                     }`}
+                   >
+                     <span className="font-bold text-sm">Tất cả Hà Nội</span>
+                     <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${
+                       filters.district === '' 
+                         ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' 
+                         : 'bg-white/5 text-slate-400 border-white/10 group-hover:border-white/20'
+                     }`}>
+                       {totalRoomCount} phòng
+                     </span>
+                   </button>
+
+                   <div className="h-px bg-white/5 mx-4" />
+
+                   {/* Từng quận */}
+                   {districts.map((d) => {
+                     const count = roomCountByDistrict[d];
+                     const isActive = filters.district === d;
+                     return (
+                       <button
+                         key={d}
+                         type="button"
+                         onClick={() => { setFilters({...filters, district: d}); setDistrictOpen(false); }}
+                         className={`w-full flex items-center justify-between px-5 py-3.5 transition-all cursor-pointer text-left group ${
+                           isActive ? 'bg-rose-500/15 text-rose-400' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                         }`}
+                       >
+                         <span className="font-bold text-sm">{d}</span>
+                         <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border transition-all ${
+                           isActive
+                             ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                             : count > 0
+                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 group-hover:bg-emerald-500/20'
+                               : 'bg-white/5 text-slate-600 border-white/5'
+                         }`}>
+                           {count} phòng
+                         </span>
+                       </button>
+                     );
+                   })}
+                 </div>
+               )}
+
+               {/* Click-outside overlay */}
+               {districtOpen && (
+                 <div className="fixed inset-0 z-40" onClick={() => setDistrictOpen(false)} />
+               )}
+             </div>
           </div>
 
           {/* Price Filter */}
@@ -319,7 +424,7 @@ const HomePage = () => {
                 <Scale size={14} className="text-emerald-500" />
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ngân sách dự kiến</label>
              </div>
-             <div className="flex flex-wrap gap-3">
+             <div className="grid grid-cols-3 gap-3">
                {[
                  { label: 'Tất cả', range: [0, 20000000] },
                  { label: 'Dưới 1tr', range: [0, 1000000] },
@@ -330,10 +435,10 @@ const HomePage = () => {
                ].map((item) => {
                  const isActive = filters.priceRange[0] === item.range[0] && filters.priceRange[1] === item.range[1];
                  return (
-                   <button 
+                   <button
                     key={item.label}
                     onClick={() => setFilters({...filters, priceRange: item.range})}
-                    className={`px-6 py-4 rounded-2xl border text-[11px] font-black uppercase transition-all cursor-pointer ${isActive ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
+                    className={`py-4 rounded-2xl border text-[11px] font-black uppercase transition-all cursor-pointer text-center ${isActive ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
                    >
                      {item.label}
                    </button>
@@ -342,10 +447,21 @@ const HomePage = () => {
              </div>
           </div>
         </div>
+
+        {/* Reset button — full width, clear CTA */}
+        <div className="relative z-10 pt-2">
+          <button
+            onClick={() => setFilters({ district: '', priceRange: [0, 20000000], amenities: [] })}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.5rem] border border-white/10 bg-white/5 hover:bg-white/10 active:bg-rose-500/20 active:border-rose-500/40 active:text-rose-400 text-slate-400 hover:text-white font-black text-xs uppercase tracking-widest transition-all group cursor-pointer select-none"
+          >
+            <Loader size={14} className="group-hover:animate-spin group-active:animate-spin" />
+            Làm mới bộ lọc
+          </button>
+        </div>
       </section>
 
       {/* Room Grid Section */}
-      <div className="space-y-12">
+      <div id="search-results" className="space-y-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
             <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
@@ -372,8 +488,8 @@ const HomePage = () => {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-            {[1, 2, 3].map(i => (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 lg:gap-10">
+            {[1, 2, 3, 4].map(i => (
               <div key={i} className="bg-slate-900/50 rounded-[2rem] aspect-[4/5] animate-pulse border border-white/5"></div>
             ))}
           </div>
@@ -390,9 +506,9 @@ const HomePage = () => {
                 }
               }
             }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10"
+            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 lg:gap-10"
           >
-            {filteredRooms.map(room => (
+            {currentRooms.map(room => (
               <motion.div
                 key={room._id}
                 variants={{
@@ -412,6 +528,52 @@ const HomePage = () => {
           <div className="text-center py-32 rounded-[2rem] bg-slate-900/10 border border-white/5 border-dashed">
             <p className="text-slate-500 font-medium text-lg">Không tìm thấy phòng nào khớp với tiêu chuẩn của bạn.</p>
           </div>
+        )}
+
+        {/* Pagination UI */}
+        {!loading && totalPages > 1 && (
+            <div className="flex justify-center items-center pt-8 gap-2">
+                <button 
+                    onClick={() => paginate(currentPage - 1)} 
+                    disabled={currentPage === 1}
+                    className="px-6 py-4 bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-[1.5rem] text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase shadow-xl shadow-slate-900/50"
+                >
+                    Trước
+                </button>
+                <div className="flex gap-2">
+                    {Array.from({ length: totalPages }).map((_, idx) => {
+                        // Logic to limit visible pages
+                        if (
+                            idx === 0 || 
+                            idx === totalPages - 1 || 
+                            (idx >= currentPage - 2 && idx <= currentPage)
+                        ) {
+                            return (
+                                <button 
+                                    key={idx}
+                                    onClick={() => paginate(idx + 1)}
+                                    className={`w-12 h-12 flex items-center justify-center rounded-[1.5rem] font-black text-sm transition-all ${currentPage === idx + 1 ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-900/60 backdrop-blur-md border border-white/5 text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                >
+                                    {idx + 1}
+                                </button>
+                            );
+                        } else if (
+                            idx === currentPage - 3 || 
+                            idx === currentPage + 1
+                        ) {
+                            return <span key={idx} className="w-12 h-12 flex items-center justify-center text-slate-500 font-black">...</span>;
+                        }
+                        return null;
+                    })}
+                </div>
+                <button 
+                    onClick={() => paginate(currentPage + 1)} 
+                    disabled={currentPage === totalPages}
+                    className="px-6 py-4 bg-slate-900/60 backdrop-blur-md border border-white/5 rounded-[1.5rem] text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase shadow-xl shadow-slate-900/50"
+                >
+                    Tiếp
+                </button>
+            </div>
         )}
       </div>
 
@@ -446,10 +608,11 @@ const HomePage = () => {
               </button>
               <button 
                 onClick={() => setShowCompareModal(true)}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer flex items-center gap-2"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-8 py-3 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer flex items-center gap-1 sm:gap-2"
               >
                 <Scale size={16} />
-                So sánh ngay
+                <span className="hidden sm:inline">So sánh ngay</span>
+                <span className="sm:hidden">So sánh</span>
               </button>
             </div>
           </motion.div>

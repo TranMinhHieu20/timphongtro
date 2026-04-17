@@ -234,6 +234,7 @@ export const importExcelRooms = async (req, res) => {
         for (const row of data) {
             try {
                 // ─ Required fields
+                // const  commissionRaw = getCellValue(row, ['Hoa hồng', 'Hoa hong']);
                 const code     = getCellValue(row, ["Mã", "Code", "Ma", "Mã phòng"]);
                 const address  = getCellValue(row, ["Địa chỉ", "Address", "Dia chi"]);
                 const priceRaw = getCellValue(row, ["Giá", "Price", "Gia", "Giá thuê"]);

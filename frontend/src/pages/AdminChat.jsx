@@ -16,7 +16,6 @@ const AdminChat = () => {
     const [previewImage, setPreviewImage] = useState(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    console.log(selectedConv)
     
     // Search states
     const [searchQuery, setSearchQuery] = useState('');
@@ -185,8 +184,8 @@ const AdminChat = () => {
     };
 
     return (
-        <div className="flex flex-col gap-4 md:gap-8 h-[calc(100vh-120px)] md:h-[calc(100vh-200px)]">
-            <div className="space-y-1 md:space-y-2">
+        <div className="flex flex-col gap-4 md:gap-8 h-[calc(100dvh-120px)] md:h-[calc(100vh-200px)]">
+            <div className="space-y-1 md:space-y-2 shrink-0">
                 <h2 className="text-2xl md:text-5xl font-black text-white tracking-tight">Hệ thống Chat</h2>
                 <p className="text-[10px] md:text-sm text-slate-500 font-medium">Phản hồi khách hàng nhanh chóng để tăng tỷ lệ chốt phòng.</p>
             </div>
@@ -325,7 +324,7 @@ const AdminChat = () => {
                                 </div>
                            </div>
                            {/* Messages Area */}
-                           <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6">
                                  {messages.map((msg, idx) => {
                                     const otherUser = getOtherUser(selectedConv);
                                     const isMe = (msg.sender?._id?.toString() || msg.sender) !== (otherUser._id?.toString() || otherUser);
@@ -404,7 +403,7 @@ const AdminChat = () => {
                            </AnimatePresence>
 
                            {/* Chat Input */}
-                           <form onSubmit={handleSend} className="p-6 bg-slate-950/40 border-t border-white/10 flex gap-4 items-center">
+                           <form onSubmit={handleSend} className="p-3 md:p-6 bg-slate-950/40 border-t border-white/10 flex gap-2 md:gap-4 items-center shrink-0">
                                 <input 
                                     type="file" 
                                     accept="image/*"
@@ -412,22 +411,22 @@ const AdminChat = () => {
                                     id="admin-chat-image"
                                     onChange={handleImageSelect}
                                 />
-                                <label htmlFor="admin-chat-image" className="p-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-2xl transition-all cursor-pointer">
-                                    <ImageIcon size={20} />
+                                <label htmlFor="admin-chat-image" className="p-3 md:p-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl md:rounded-2xl transition-all cursor-pointer">
+                                    <ImageIcon size={20} className="w-5 h-5 md:w-6 md:h-6" />
                                 </label>
                                 <input 
                                     type="text"
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
-                                    placeholder="Nhập phản hồi cho khách..."
-                                    className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/50"
+                                    placeholder="Nhập phản hồi..."
+                                    className="flex-1 min-w-0 bg-slate-900/50 border border-white/5 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                                 />
                                 <button 
                                     type="submit"
                                     disabled={sending || (!inputText.trim() && !selectedImage)}
-                                    className="px-8 h-12 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all shadow-xl shadow-rose-500/20 disabled:opacity-50"
+                                    className="px-4 md:px-8 h-10 md:h-12 bg-rose-500 hover:bg-rose-600 text-white rounded-xl md:rounded-2xl font-black uppercase text-xs tracking-widest transition-all shadow-xl shadow-rose-500/20 disabled:opacity-50 shrink-0 flex items-center justify-center min-w-[50px]"
                                 >
-                                    {sending ? <Loader2 className="animate-spin" size={18} /> : 'Gửi'}
+                                    {sending ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} className="md:hidden" /><span className="hidden md:inline">Gửi</span></>}
                                 </button>
                            </form>
                         </>

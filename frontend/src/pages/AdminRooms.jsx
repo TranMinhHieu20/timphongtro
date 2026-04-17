@@ -9,6 +9,10 @@ const AdminRooms = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Edit Modal State
   const [editingRoom, setEditingRoom] = useState(null);
   const [editFormData, setEditFormData] = useState({});
@@ -126,6 +130,18 @@ const AdminRooms = () => {
     String(r.displayId || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
+  // Pagination Logic
+  useEffect(() => {
+    setCurrentPage(1); // Reset form page 1 on search
+  }, [searchTerm]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRooms = filteredRooms.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40 gap-4">
       <Loader2 className="animate-spin text-rose-500" size={40} />
@@ -158,7 +174,7 @@ const AdminRooms = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {filteredRooms.map(room => (
+        {currentRooms.map(room => (
           <motion.div 
             layout
             key={room._id}
@@ -277,6 +293,37 @@ const AdminRooms = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination UI */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center pt-8 gap-2">
+            <button 
+                onClick={() => paginate(currentPage - 1)} 
+                disabled={currentPage === 1}
+                className="px-4 py-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase"
+            >
+                Trước
+            </button>
+            <div className="flex gap-1">
+                {Array.from({ length: totalPages }).map((_, idx) => (
+                    <button 
+                        key={idx}
+                        onClick={() => paginate(idx + 1)}
+                        className={`w-10 h-10 rounded-2xl font-black text-xs transition-all ${currentPage === idx + 1 ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-900 border border-white/5 text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                    >
+                        {idx + 1}
+                    </button>
+                ))}
+            </div>
+            <button 
+                onClick={() => paginate(currentPage + 1)} 
+                disabled={currentPage === totalPages}
+                className="px-4 py-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all font-black text-xs uppercase"
+            >
+                Sau
+            </button>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <AnimatePresence>
