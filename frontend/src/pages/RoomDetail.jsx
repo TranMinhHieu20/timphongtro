@@ -469,7 +469,7 @@ const RoomDetail = () => {
                   <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Thời gian xem phòng</label>
                     <input
-                      type="text" placeholder="Ví dụ: 18h tối mai"
+                      type="text" placeholder="Ví dụ: giờ xem, ngày/tháng"
                       value={appointment}
                       onChange={(e) => setAppointment(e.target.value)}
                       className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-bold"

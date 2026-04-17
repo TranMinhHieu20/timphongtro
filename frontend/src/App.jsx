@@ -22,6 +22,7 @@ import ChatBox from './components/ChatBox';
 import AnnouncementBar from './components/AnnouncementBar';
 import GlobalLiveNotification from './components/GlobalLiveNotification';
 import ChatToast from './components/ChatToast';
+import Footer from './components/Footer';
 
 function AppContent() {
   const { user, isAdmin, isAuthenticated } = useAuth();
@@ -70,6 +71,7 @@ function AppContent() {
             </Routes>
           </AnimatePresence>
         </div>
+        <Footer/>
 
         <ChatBox currentUser={user} />
         <GlobalLiveNotification />
