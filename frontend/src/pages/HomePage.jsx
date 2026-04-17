@@ -332,7 +332,7 @@ const HomePage = () => {
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Bộ lọc thông minh</h3>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-800">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-40">
           {/* District Filter — Custom Dropdown */}
           <div className="lg:col-span-5 space-y-5">
              <div className="flex items-center gap-2 px-1">
