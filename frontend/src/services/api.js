@@ -3,7 +3,7 @@ import axios from 'axios'
 const API_URL =
   import.meta.env.MODE === 'development'
     ? 'http://localhost:3000/api'
-    : 'https://timphongtro.onrender.com/api'
+    : 'https://timphongonline.onrender.com/api'
 
 const api = axios.create({
   baseURL: API_URL,
