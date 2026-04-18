@@ -25,7 +25,7 @@ export const sendPasswordResetEmail = async (email, otp) => {
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #f8fafc;">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h1 style="color: #f43f5e; margin: 0;">TimPhongTro</h1>
+                    <h1 style="color: #f43f5e; margin: 0;">TimPhongOnline</h1>
                     <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Hệ thống Tìm Phòng Trọ Nhanh Chóng</p>
                 </div>
                 
