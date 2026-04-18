@@ -19,9 +19,9 @@ const transporter = nodemailer.createTransport({
 
 export const sendPasswordResetEmail = async (email, otp) => {
     const mailOptions = {
-        from: `"TimPhongTro" <${process.env.SMTP_USER}>`,
+        from: `"TimPhongOnline" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Mã xác nhận khôi phục mật khẩu - TimPhongTro',
+        subject: 'Mã xác nhận khôi phục mật khẩu - TimPhongOnline',
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #f8fafc;">
                 <div style="text-align: center; margin-bottom: 20px;">
@@ -48,7 +48,7 @@ export const sendPasswordResetEmail = async (email, otp) => {
                 </div>
                 
                 <div style="text-align: center; margin-top: 20px; color: #94a3b8; font-size: 12px;">
-                    &copy; ${new Date().getFullYear()} TimPhongTro. All rights reserved.
+                    &copy; ${new Date().getFullYear()} TimPhongOnline. All rights reserved.
                 </div>
             </div>
         `,
