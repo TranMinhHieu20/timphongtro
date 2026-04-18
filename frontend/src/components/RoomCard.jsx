@@ -51,8 +51,12 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
   // Format: 387000 → "387.000₫"
   const formatCurrency = (val) => val?.toLocaleString('vi-VN') + '₫'
 
-  // Availability color
-  const availColor = room.availability?.toLowerCase().includes('trống')
+  const status = room.availability?.toLowerCase() || ''
+
+  const isAvailable1 =
+    status.includes('trống') || status.includes('ở được luôn')
+
+  const availColor = isAvailable1
     ? 'bg-emerald-400 text-slate-900'
     : 'bg-amber-400 text-slate-900'
 
@@ -151,16 +155,12 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
               </span>
             )}
 
-            {/* Admin code — desktop only */}
-            {isAdmin && (
-              <span
-                className="hidden md:inline bg-slate-950/70 backdrop-blur-md text-slate-400 text-[9px] font-mono px-2.5 py-1 rounded-full border border-white/10 tracking-[0.1em]"
-                title="Mã nội bộ (chỉ admin)"
-              >
-                {room.code?.toUpperCase()}
-                {room.roomNumber ? ` · ${room.roomNumber.toUpperCase()}` : ''}
-              </span>
-            )}
+            {/* Admin code — desktop and mobile */}
+
+            <span className="md:inline bg-slate-950/70 backdrop-blur-md text-slate-400 text-[9px] font-mono px-2.5 py-1 rounded-full border border-white/10 tracking-[0.1em]">
+              {isAdmin && `${room.code?.toUpperCase()} ·`}
+              {room.roomNumber ? ` ${room.roomNumber.toUpperCase()}` : ''}
+            </span>
           </div>
 
           {/* Video badge — mobile: icon only / desktop: full */}
@@ -228,10 +228,10 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
         {/* ── Info Section ──────────────────────────────────────────────────── */}
         <div className="p-3 md:p-7 space-y-2 md:space-y-4 flex flex-col flex-1">
           {/* Address */}
-          <div className="flex items-start gap-1 text-rose-500/80">
+          <div className="flex items-start gap-1 text-green-500">
             <MapPin size={10} className="shrink-0 mt-0.5 md:hidden" />
             <MapPin size={14} className="shrink-0 mt-0.5 hidden md:block" />
-            <span className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider line-clamp-2">
+            <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider line-clamp-2 md:line-clamp-1">
               {room.address}
             </span>
           </div>
@@ -247,7 +247,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           {/* Availability badge — mobile only */}
           {room.availability && (
             <span
-              className={`md:hidden inline-block text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wide ${availColor}`}
+              className={`md:hidden inline-block text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wide ${availColor}`}
             >
               {room.availability}
             </span>
@@ -266,7 +266,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
             {/* Availability badge — desktop (also shown in image overlay) */}
             {room.availability && (
               <span
-                className={`hidden md:inline text-[8px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow-lg ${availColor}`}
+                className={`hidden md:inline text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow-lg ${availColor}`}
               >
                 {room.availability}
               </span>

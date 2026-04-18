@@ -20,7 +20,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-  console.log(user)
   // Profile Form
   const [profileData, setProfileData] = useState({
     username: user?.username || '',

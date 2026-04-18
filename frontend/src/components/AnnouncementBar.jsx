@@ -14,7 +14,7 @@ import { leadService } from '../services/api'
 const AnnouncementBar = () => {
   const [successStories, setSuccessStories] = useState([])
   const [recentActivies, setRecentActivities] = useState([])
-  const [stats, setStats] = useState({ totalLeads: 1200, totalUsers: 500 })
+  const [stats, setStats] = useState({ totalLeads: '1200+', totalUsers: 500 })
 
   useEffect(() => {
     // 1. Fetch historical success stories and Global Stats
