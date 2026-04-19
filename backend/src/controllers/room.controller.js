@@ -87,6 +87,8 @@ export const getAllRooms = async (req, res) => {
                 { address: { $regex: q, $options: "i" } },
                 { displayId: { $regex: q, $options: "i" } },
                 { description: { $regex: q, $options: "i" } },
+                { roomNumber: {$regex: q, $options: 'i'}},
+                { notes: {$regex: q, $options: 'i'}},
                 ...(admin ? [{ code: { $regex: q, $options: "i" } }] : [])
             ];
         }
