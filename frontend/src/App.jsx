@@ -12,6 +12,7 @@ import AdminLeads from './pages/AdminLeads'
 import AdminRooms from './pages/AdminRooms'
 import AdminChat from './pages/AdminChat'
 import FavoritesPage from './pages/FavoritesPage'
+import LiveSheetPage from './pages/LiveSheetPage'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import AdminRoute from './components/AdminRoute'
 import { AnimatePresence } from 'framer-motion'
@@ -108,6 +109,14 @@ function AppContent() {
                 element={
                   <PageTransition>
                     <FavoritesPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/live"
+                element={
+                  <PageTransition>
+                    <LiveSheetPage />
                   </PageTransition>
                 }
               />

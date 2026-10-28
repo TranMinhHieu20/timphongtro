@@ -22,6 +22,18 @@ const Footer = () => {
             timphongonline
           </a>
         </div>
+        {/* Thông tin liên hệ */}
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-400 bg-white/5 px-4 py-2 rounded-full border border-white/5">
+          <span>Cần trợ giúp liên hệ Zalo:</span>
+          <a
+            href="https://www.facebook.com/timphongonline"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 font-bold transition-colors flex items-center gap-1"
+          >
+            0398935034
+          </a>
+        </div>
       </div>
     </footer>
   )

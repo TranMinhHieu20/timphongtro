@@ -14,6 +14,7 @@ export const roomService = {
   getAll: (params) => api.get('/rooms', { params }),
   getById: (id) => api.get(`/rooms/${id}`),
   search: (query) => api.get(`/rooms/search?query=${query}`),
+  getLiveSheet: () => api.get('/rooms/live-sheet'),
   importZalo: (formData) =>
     api.post('/rooms/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }

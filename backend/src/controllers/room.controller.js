@@ -3,6 +3,7 @@ import { parseZaloText, parsePriceValue } from "../lib/zaloParser.js";
 import { uploadImage, uploadVideo } from "../lib/cloudinary.js";
 import xlsx from "xlsx";
 import { io } from "../server.js";
+import https from 'https';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -158,6 +159,44 @@ export const searchRooms = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+// PROXY GOOGLE SHEET
+export const getLiveSheet = async (req, res) => {
+    try {
+        const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/1lr-g_qxehdM6eKjvGXOMqBTs0UkYNl8NuxBsfbpOqvo/export?format=csv&gid=0&cb=${new Date().getTime()}`;
+        
+        https.get(SHEET_CSV_URL, (response) => {
+            // Handle redirects (Google Sheets export often redirects)
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                https.get(response.headers.location, (redirectResponse) => {
+                    let data = '';
+                    redirectResponse.on('data', chunk => { data += chunk; });
+                    redirectResponse.on('end', () => {
+                        res.setHeader('Content-Type', 'text/csv');
+                        res.send(data);
+                    });
+                }).on('error', (e) => {
+                    throw e;
+                });
+                return;
+            }
+            
+            let data = '';
+            response.on('data', chunk => { data += chunk; });
+            response.on('end', () => {
+                res.setHeader('Content-Type', 'text/csv');
+                res.send(data);
+            });
+        }).on('error', (e) => {
+            console.error("Error fetching from Google:", e);
+            res.status(500).json({ message: "Failed to fetch live sheet: " + e.message });
+        });
+    } catch (error) {
+        console.error("Error proxying sheet:", error.message);
+        res.status(500).json({ message: "Failed to fetch live sheet" });
+    }
+};
+
 
 // IMPORT ROOM FROM ZALO TEXT
 export const importZaloRoom = async (req, res) => {

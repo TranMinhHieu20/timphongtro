@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllRooms, getRoomById, importZaloRoom, searchRooms, importExcelRooms, updateRoomStatus, updateRoom, deleteRoom } from "../controllers/room.controller.js";
+import { getAllRooms, getRoomById, importZaloRoom, searchRooms, importExcelRooms, updateRoomStatus, updateRoom, deleteRoom, getLiveSheet } from "../controllers/room.controller.js";
 import protectRoute from "../middlewares/authProtect.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import optionalProtect from "../middlewares/optionalProtect.js";
@@ -18,6 +18,7 @@ const upload = multer({
 
 router.get("/", optionalProtect, getAllRooms);
 router.get("/search", optionalProtect, searchRooms);
+router.get("/live-sheet", getLiveSheet); // Proxy route for Google Sheets
 router.get("/:id", optionalProtect, getRoomById);
 
 // Import route (Admin only)

@@ -112,6 +112,15 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
             <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <Search size={20} className="relative z-10 group-hover:scale-110 transition-transform" />
           </button>
+          
+          <Link 
+            to="/live" 
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/20 transition-all cursor-pointer group"
+          >
+            <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping shadow-[0_0_8px_#f43f5e]"></div>
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest hidden sm:inline">Live Board</span>
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest sm:hidden">Live</span>
+          </Link>
 
           {isAuthenticated && (
             <Link 
