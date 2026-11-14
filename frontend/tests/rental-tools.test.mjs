@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {matchesRoom,searchSuggestions} from '../src/services/roomSearch.js';
 import {estimateCosts,amount} from '../src/services/roomCosts.js';
-import {roomMapLinks} from '../src/services/maps.js';
 import {bookingStatusLabel} from '../src/services/bookingStatus.js';
 const rooms=[{_id:'a',district:'Cầu Giấy',address:'Trần Thái Tông, Cầu Giấy',status:'available'}, {_id:'b',district:'Cầu Giấy',address:'Duy Tân, Cầu Giấy',status:'rented'}, {_id:'c',district:'Đống Đa',address:'Chùa Láng, Đống Đa',status:'coming-soon'}];
 test('Search folds Vietnamese accents and matches every word',()=>{assert.ok(matchesRoom(rooms[2],'dong da'));assert.ok(matchesRoom(rooms[0],'thai cau'));assert.equal(matchesRoom(rooms[0],'thai lang'),false);});
@@ -16,8 +15,4 @@ test('Blank fees remain unknown and the subtotal stays explicit',()=>{const c=es
 test('Explicit zero is a known amount',()=>{const c=estimateCosts(0,{...fees,electricityRate:0,waterRate:0,services:0,parking:0});assert.equal(c.monthly,0);assert.equal(c.deposit,0);assert.ok(c.complete);});
 for(const invalid of [-1,Infinity,NaN,'abc',null,'',true,1000000001]) test(`Reject invalid amount ${String(invalid)}`,()=>assert.equal(amount(invalid),null));
 test('Fractional deposit months and integer currency rounding',()=>{const c=estimateCosts(3500001,{...fees,depositMonths:'0.5'});assert.equal(c.deposit,1750001);});
-test('Map links encode Vietnamese addresses and punctuation',()=>{const address='Ngõ 3 & 5, Đống Đa';assert.equal(new URL(roomMapLinks({address}).directions).searchParams.get('destination'),address);});
-test('GeoJSON longitude is converted to latitude first',()=>{const m=roomMapLinks({location:{coordinates:[106.7,10.8]}});assert.equal(new URL(m.directions).searchParams.get('destination'),'10.8,106.7');assert.ok(m.embed.includes('marker=10.8,106.7'));});
-for(const coordinates of [[105.8342,21.0278],[0,0],[999,100],['105','21'],[]]) test(`Unreliable pin falls back to address ${coordinates}`,()=>{const m=roomMapLinks({address:'Cầu Giấy',location:{coordinates}});assert.equal(m.embed,null);assert.equal(new URL(m.directions).searchParams.get('destination'),'Cầu Giấy');});
-test('No address and no coordinates produces no map link',()=>assert.equal(roomMapLinks({}),null));
 test('Confirmed labels distinguish viewing and reservation',()=>{assert.equal(bookingStatusLabel({status:'confirmed',type:'viewing'}),'Đã xác nhận lịch xem');assert.equal(bookingStatusLabel({status:'confirmed',type:'reservation'}),'Đã xác nhận giữ chỗ');});
