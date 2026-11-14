@@ -12,6 +12,7 @@ const RoomSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
+        min: 1,
         required: true
     },
     address: {
@@ -20,6 +21,7 @@ const RoomSchema = new mongoose.Schema({
     },
     cashbackAmount: {
         type: Number,
+        min: 0,
         default: 0
     },
     status: {
@@ -55,10 +57,12 @@ const RoomSchema = new mongoose.Schema({
     },
     commissionRate: {
         type: Number, // % ví dụ: 50
+        min: 0, max: 100,
         default: 0
     },
     totalCommission: {
-        type: Number, // Tự động tính = Price * Rate / 100
+        type: Number,
+        min: 0, // Tự động tính = Price * Rate / 100
         default: 0
     },
     netProfit: {
@@ -79,12 +83,12 @@ const RoomSchema = new mongoose.Schema({
 // Tự động tính toán tài chính trước khi lưu
 RoomSchema.pre("save", async function() {
     // 1. Tự động tính Tiền hoàn khách = 9% Giá phòng (Nếu chưa có)
-    if (this.price && (!this.cashbackAmount || this.cashbackAmount === 0)) {
+    if (this.price && this.isNew && this.$isDefault("cashbackAmount")) {
         this.cashbackAmount = Math.round(this.price * 0.09);
     }
 
     // 2. Tính tổng hoa hồng
-    if (this.price && this.commissionRate) {
+    if (this.price && this.isNew && this.$isDefault("totalCommission")) {
         this.totalCommission = (this.price * this.commissionRate) / 100;
     }
     

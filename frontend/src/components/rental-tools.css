@@ -1,0 +1,31 @@
+.rental-tool { --tool-bg:#111c2e; --tool-text:#e2e8f0; --tool-muted:#9cacc0; --tool-line:#334155; background:var(--tool-bg); color:var(--tool-text); border:1px solid var(--tool-line); border-radius:22px; padding:24px; font-weight:300; }
+[data-theme="light"] .rental-tool { --tool-bg:#fff; --tool-text:#243247; --tool-muted:#526176; --tool-line:#dce3eb; }
+.tool-heading { display:flex;align-items:center;gap:10px; }
+.cost-estimator { scroll-margin-top:160px; }
+.tool-heading h2 { font-size:20px;font-weight:400;line-height:1.5; }
+.tool-heading svg { color:#f43f5e;flex-shrink:0; }
+.tool-intro { color:var(--tool-muted);font-size:13px;line-height:1.8;margin:10px 0 22px; }
+.cost-layout { display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start; }
+.cost-inputs { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+.cost-inputs label { font-size:12px;line-height:1.7; }
+.cost-inputs input { display:block;width:100%;border:1px solid var(--tool-line);border-radius:10px;background:transparent;color:inherit;padding:9px 10px;margin-top:5px;font-size:14px;font-weight:300; }
+.cost-inputs input:focus { outline:2px solid #f43f5e;outline-offset:2px; }
+.cost-note { font-size:12px;line-height:1.85;color:var(--tool-muted,#94a3b8);margin-top:12px; }
+.cost-inputs .cost-note { grid-column:1/-1; }
+.cost-summary { border:1px solid var(--tool-line);border-radius:14px;padding:16px;min-width:0; }
+.cost-summary dl>div { display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13px; }
+.cost-summary dd { text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0; }
+.cost-summary .cost-total { border-top:1px solid var(--tool-line);margin-top:8px;padding-top:14px;font-weight:400; }
+.cost-total dd { color:#fb7185;font-size:16px; }
+[data-theme="light"] .cost-total dd { color:#be123c; }
+.booking-progress { padding:18px 0;border-top:1px solid #64748b33;border-bottom:1px solid #64748b33; }
+.booking-progress ol { list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0;padding:0; }
+.booking-progress li { display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font-size:12px;font-weight:300;color:#94a3b8; }
+.progress-dot { border:1px solid #64748b88;border-radius:50%;width:25px;height:25px;display:flex;align-items:center;justify-content:center; }
+.booking-progress .reached { color:#34d399; }
+.reached .progress-dot { background:#10b98120;border-color:#10b981; }
+[data-theme="light"] .booking-progress { --tool-muted:#526176; }
+[data-theme="light"] .booking-progress li { color:#64748b; }
+[data-theme="light"] .booking-progress .reached { color:#047857; }
+.progress-cancelled { display:flex;gap:8px;align-items:center;color:#fb7185;font-size:13px; }
+@media(max-width:700px) { .rental-tool{padding:18px}.cost-layout{grid-template-columns:1fr}.booking-progress ol{grid-template-columns:1fr;gap:12px}.booking-progress li{flex-direction:row;text-align:left}.tool-heading h2{font-size:18px} }

@@ -1,28 +1,19 @@
-/**
- * Structured Manual Input Parser — Updated for robustness
- */
-
-export const parsePriceValue = (text) => {
-    if (!text) return 0;
-    let clean = text.toLowerCase().replace(/,/g, "").trim();
-    
-    // 1 triệu = 1,000,000 (Sửa lỗi 100,000)
-    if (clean.includes("tr") || clean.includes("triệu")) {
-        let parts = clean.split(/(?:tr|triệu)/);
-        let millions = parseFloat(parts[0]) || 0;
-        let decimals = 0;
-        if (parts[1]) {
-            let sub = parts[1].trim().substring(0, 1);
-            if (!isNaN(sub)) decimals = parseFloat(sub) * 100000;
-        }
-        return (millions * 1000000) + decimals;
+export function parsePriceValue(value) {
+    if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : NaN;
+    if (typeof value !== 'string' || !value.trim()) return NaN;
+    const text = value.trim().toLowerCase().replace(/\s+/g, '').replace(/(?:vnd|vnđ|đồng|đ|₫)$/, '');
+    // 3tr5, 3.5tr and 3,5 triệu all mean 3,500,000 VND.
+    const million = text.match(/^(\d+(?:[.,]\d+)?)(?:triệu|tr)(\d{1,3})?$/u);
+    if (million) {
+        if (million[2] && /[.,]/.test(million[1])) return NaN;
+        return Math.round(Number(million[1].replace(',', '.')) * 1000000 + (million[2] ? Number('0.' + million[2]) * 1000000 : 0));
     }
-    
-    if (clean.includes("k") || clean.includes("ngàn")) {
-        return (parseFloat(clean.replace(/(?:k|ngàn)/g, "")) || 0) * 1000;
-    }
-    return parseFloat(clean.replace(/[^0-9]/g, "")) || 0;
-};
+    const thousand = text.match(/^(\d+(?:[.,]\d+)?)(?:nghìn|ngàn|k)$/u);
+    if (thousand) return Math.round(Number(thousand[1].replace(',', '.')) * 1000);
+    if (/^\d+$/.test(text)) return Number(text);
+    if (/^\d{1,3}([.,])\d{3}(?:\1\d{3})*$/.test(text)) return Number(text.replace(/[.,]/g, ''));
+    return NaN;
+}
 
 export const parseZaloText = (text) => {
     const lines = text.split("\n").map(l => l.trim()).filter(l => l !== "");
@@ -38,7 +29,7 @@ export const parseZaloText = (text) => {
         commissionRaw: "",
         commissionRate: 0,
         ownerInfo: { name: "", phone: "" },
-        cashbackAmount: 0 
+        cashbackAmount: undefined
     };
 
     let currentSection = "";

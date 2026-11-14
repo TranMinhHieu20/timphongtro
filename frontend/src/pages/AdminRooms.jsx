@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { roomService } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { roomService, SOCKET_URL } from '../services/api';
 import { Edit2, Trash2, Home, CheckCircle, XCircle, Search, Plus, MapPin, ExternalLink, Loader2, X, Video, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 const AdminRooms = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const requestVersion = useRef(0);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Pagination State
@@ -23,35 +25,30 @@ const AdminRooms = () => {
   }, []);
 
   const fetchRooms = async () => {
+    const version = ++requestVersion.current;
     try {
-      const res = await roomService.getAll();
+      const res = await roomService.getAdmin();
+      if (version !== requestVersion.current) return;
+      if (!Array.isArray(res.data)) throw new Error("Dữ liệu phòng không hợp lệ");
       setRooms(res.data);
+      setLoadError('');
     } catch (error) {
-      console.error("Error fetching rooms:", error);
+      if (version === requestVersion.current) setLoadError(error.response?.data?.message || "Không tải được danh sách phòng. Hãy thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const socketUrl = import.meta.env.MODE === 'development' ? "http://localhost:3000" : window.location.origin;
+    // Public event payloads deliberately omit private fields. Fetch the authenticated
+    // admin representation instead of replacing full rooms with those payloads.
+    let socket; let disposed = false;
     import('socket.io-client').then(({ io }) => {
-      const socket = io(socketUrl);
-
-      socket.on('newRoomCreated', (newRoom) => {
-        setRooms(prev => [newRoom, ...prev]);
-      });
-
-      socket.on('roomUpdated', (updatedRoom) => {
-        setRooms(prev => prev.map(r => r._id === updatedRoom._id ? updatedRoom : r));
-      });
-
-      socket.on('roomDeleted', (roomId) => {
-        setRooms(prev => prev.filter(r => r._id !== roomId));
-      });
-
-      return () => socket.disconnect();
+      if (disposed) return;
+      socket = io(SOCKET_URL, { withCredentials: true });
+      for (const event of ['newRoomCreated', 'roomUpdated', 'roomDeleted', 'connect']) socket.on(event, fetchRooms);
     });
+    return () => { disposed = true; ++requestVersion.current; socket?.disconnect(); };
   }, []);
 
   const handleDelete = async (id, code) => {
@@ -138,7 +135,8 @@ const AdminRooms = () => {
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentRooms = filteredRooms.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredRooms.length / itemsPerPage));
+  useEffect(() => { setCurrentPage(p => Math.min(p, totalPages)); }, [totalPages]);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -151,6 +149,7 @@ const AdminRooms = () => {
 
   return (
     <div className="space-y-12">
+      {loadError && <div role="alert" className="p-4 border border-rose-400 rounded-xl">{loadError}<button onClick={fetchRooms} className="underline ml-3">Thử lại</button></div>}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
            <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">Quản lý phòng đã đăng</h2>

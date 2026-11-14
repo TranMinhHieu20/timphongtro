@@ -19,6 +19,7 @@ const upload = multer({
 router.get("/", optionalProtect, getAllRooms);
 router.get("/search", optionalProtect, searchRooms);
 router.get("/live-sheet", getLiveSheet); // Proxy route for Google Sheets
+router.get("/admin/all", protectRoute, isAdmin, getAllRooms);
 router.get("/:id", optionalProtect, getRoomById);
 
 // Import route (Admin only)

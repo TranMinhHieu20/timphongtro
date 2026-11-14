@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { roomService } from '../services/api';
+import { parsePriceValue } from '../services/priceParser';
 import { FileText, Plus, CheckCircle2, AlertCircle, Sparkles, Image as ImageIcon, FileUp, X, Loader2, Video, Play } from 'lucide-react';
 import {motion} from 'framer-motion';
 
@@ -65,7 +66,7 @@ const AdminImport = () => {
     let code = '';
     let commissionRate = 0;
     let roomNum = '';
-    let cashbackAmountParsed = 0;
+    let cashbackAmountParsed = null;
     let address = '';
     let description = '';
     let notes = [];
@@ -76,20 +77,8 @@ const AdminImport = () => {
     lines.forEach(line => {
         if (line.match(/^Giá\s*:/i)) {
             const pText = (line.split(':')[1] || '').trim().toLowerCase();
-            let val = 0;
-            if (pText.includes('tr')) {
-                const parts = pText.split('tr');
-                val = (parseFloat(parts[0]) || 0) * 1000000;
-                if (parts[1]) {
-                    const decimal = parseFloat(parts[1].substring(0, 1)) || 0;
-                    val += decimal * 100000;
-                }
-            } else if (pText.includes('k')) {
-                val = (parseFloat(pText.replace('k', '')) || 0) * 1000;
-            } else {
-                val = parseFloat(pText.replace(/[^0-9.]/g, '')) || 0;
-            }
-            price = val;
+            const parsed = parsePriceValue(pText);
+            price = Number.isFinite(parsed) ? parsed : 0;
             currentSection = '';
         }
         else if (line.match(/^Mã\s*:/i)) {
@@ -107,9 +96,8 @@ const AdminImport = () => {
         }
         else if (line.match(/^Hoàn\s*(?:khách|trả)\s*:/i)) {
             const cText = (line.split(':')[1] || '').trim().toLowerCase();
-            if (cText.includes('tr')) cashbackAmountParsed = parseFloat(cText) * 1000000;
-            else if (cText.includes('k')) cashbackAmountParsed = parseFloat(cText) * 1000;
-            else cashbackAmountParsed = parseFloat(cText.replace(/[^0-9.]/g, '')) || 0;
+            const parsed = parsePriceValue(cText);
+            cashbackAmountParsed = Number.isFinite(parsed) ? parsed : null;
             currentSection = '';
         }
         else if (line.match(/^Địa\s*chỉ\s*:/i)) {
@@ -141,7 +129,7 @@ const AdminImport = () => {
         }
     });
     
-    const cashbackAmount = cashbackAmountParsed || Math.round(price * 0.09);
+    const cashbackAmount = cashbackAmountParsed ?? Math.round(price * 0.09);
     const totalCommission = Math.round((price * commissionRate) / 100);
     
     setFormData({
@@ -185,7 +173,7 @@ const AdminImport = () => {
       setText('');
       setFormData({
         commissionRate: 0, code: '', roomNumber: '', price: 0,
-        address: '', status: 'available', description: '', notes: '', cashbackAmount: 0
+        address: '', availability: '', status: 'available', description: '', notes: '', cashbackAmount: 0, totalCommission: 0
       });
       setImages([]);
       setVideo(null);
@@ -462,7 +450,7 @@ const AdminImport = () => {
 
               <button 
                 onClick={handleImportZalo}
-                disabled={loading || !text}
+                disabled={loading || !formData.code.trim() || !formData.address.trim() || !(formData.price > 0)}
                 className="w-full bg-rose-500 hover:bg-rose-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-black py-5 rounded-[1.5rem] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-rose-500/20 text-lg group"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <><Plus size={22} className="group-hover:rotate-90 transition-transform" /> Đăng phòng ngay</>}

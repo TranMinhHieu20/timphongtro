@@ -1,6 +1,8 @@
+import ThemeSwitcher from './ThemeSwitcher';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Home, User, LogOut, Settings, Menu, Heart, ChevronDown } from 'lucide-react';
+import { Search, Home, User, LogOut, Settings, Menu, Heart, ChevronDown, Calendar } from 'lucide-react';
+
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -41,7 +43,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
 
   return (
     <header className="sticky top-[44px] z-50 bg-slate-900/70 backdrop-blur-xl border-b border-white/5 flex flex-col shadow-lg shadow-slate-900/50">
-      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-12 flex h-20 items-center justify-between gap-4 sm:gap-8">
+      <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-6 lg:px-12 flex min-h-20 py-3 items-center justify-between gap-2 sm:gap-8">
         
         {/* Left: Logo */}
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
@@ -49,18 +51,13 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
             <motion.div 
                whileHover={{ scale: 1.1, rotate: 5 }}
                whileTap={{ scale: 0.9 }}
-               className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-orange-500 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl shadow-xl shadow-rose-500/20"
+               className="relative overflow-hidden bg-rose-500 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl shadow-xl shadow-rose-500/20"
             >
-              <motion.div 
-                className="absolute inset-0 bg-white/30 skew-x-12"
-                initial={{ x: '-150%' }}
-                animate={{ x: '150%' }}
-                transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 3, ease: 'easeInOut' }}
-              />
+              
               <Home className="text-white w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
             </motion.div>
-            <span className="text-xl sm:text-2xl font-black tracking-tighter text-white hidden sm:block">
-              TimPhong<span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-orange-500">Online</span>
+            <span className="text-xl sm:text-2xl font-normal tracking-normal text-white hidden sm:block">
+              TimPhong<span className="text-rose-400">Online</span>
             </span>
           </Link>
         </div>
@@ -69,7 +66,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
         <div className="flex-1 max-w-2xl hidden md:block">
           <div className="relative group">
             {/* Glowing background */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500 to-orange-500 rounded-[1.25rem] opacity-0 group-hover:opacity-20 group-focus-within:opacity-40 blur-md transition-all duration-500"></div>
+            
             
             <div className="relative">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-rose-500 transition-colors z-10" size={18} />
@@ -95,7 +92,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
                 />
                 
                 {/* Enter shortcut hint */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/5 border border-white/10 text-slate-400 text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg opacity-0 group-focus-within:opacity-100 transition-opacity z-10 shadow-sm pointer-events-none">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/5 border border-white/10 text-slate-400 text-[10px] font-normal normal-case px-2.5 py-1.5 rounded-lg opacity-0 group-focus-within:opacity-100 transition-opacity z-10 shadow-sm pointer-events-none">
                    Enter ↵
                 </div>
             </div>
@@ -103,10 +100,12 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
         </div>
 
         {/* Right: Profile & Actions */}
-        <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0">
+        <div className="flex flex-wrap justify-end items-center gap-1 sm:gap-4 lg:gap-6 min-w-0">
+          <ThemeSwitcher />
           {/* Mobile Search Toggle */}
           <button 
             onClick={() => setShowMobileSearch(!showMobileSearch)}
+            aria-label="Mở tìm kiếm"
             className="md:hidden p-2 sm:p-3 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 cursor-pointer relative overflow-hidden group"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -115,35 +114,46 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
           
           <Link 
             to="/live" 
-            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/20 transition-all cursor-pointer group"
+            className="hidden sm:flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl border border-rose-500/20 transition-all cursor-pointer group"
           >
-            <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping shadow-[0_0_8px_#f43f5e]"></div>
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest hidden sm:inline">Live Board</span>
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest sm:hidden">Live</span>
+            <div className="w-2 h-2 bg-rose-500 rounded-full "></div>
+            <span className="text-[10px] sm:text-xs font-normal normal-case tracking-normal hidden sm:inline">Live Board</span>
+            <span className="text-[10px] sm:text-xs font-normal normal-case tracking-normal sm:hidden">Live</span>
           </Link>
 
           {isAuthenticated && (
-            <Link 
-              to="/favorites" 
-              className="p-2 sm:p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all relative group cursor-pointer border border-transparent hover:border-rose-500/20"
-              title="Phòng đã lưu"
-            >
-              <Heart size={22} className="group-hover:scale-110 group-hover:fill-rose-500/20 transition-all" />
-            </Link>
+            <>
+              <Link 
+                to="/favorites" 
+                className="hidden sm:block p-2 sm:p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all relative group cursor-pointer border border-transparent hover:border-rose-500/20"
+                title="Phòng đã lưu"
+              >
+                <Heart size={22} className="group-hover:scale-110 group-hover:fill-rose-500/20 transition-all" />
+              </Link>
+
+              <Link 
+                to="/my-bookings" 
+                className="p-2 sm:p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all relative group cursor-pointer border border-transparent hover:border-white/10"
+                title="Lịch hẹn & Đặt chỗ"
+              >
+                <Calendar size={22} className="group-hover:scale-110 transition-all text-rose-400" />
+              </Link>
+            </>
           )}
 
           {isAuthenticated ? (
             <div className="relative">
               <button 
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-3 sm:gap-4 bg-white/5 pl-2 pr-4 sm:pr-5 py-2 rounded-full border border-white/5 hover:border-white/20 hover:bg-white/10 transition-all cursor-pointer group"
+                aria-label="Mở menu tài khoản"
+                className="flex items-center gap-3 sm:gap-4 bg-white/5 p-1 sm:pl-2 sm:pr-5 sm:py-2 rounded-full border border-white/5 hover:border-white/20 hover:bg-white/10 transition-all cursor-pointer group"
               >
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center text-sm font-black text-white shadow-xl shadow-rose-500/20 group-hover:rotate-12 transition-transform">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-500 flex items-center justify-center text-sm font-normal text-white shadow-xl shadow-rose-500/20  transition-transform">
                   {user?.username?.[0].toUpperCase()}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <div className="text-xs font-black text-white leading-none">{user?.username}</div>
-                  <div className="text-[10px] font-bold fill-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 uppercase tracking-widest mt-1">
+                  <div className="text-xs font-normal text-white leading-none">{user?.username}</div>
+                  <div className="text-[10px] font-normal fill-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 normal-case tracking-normal mt-1">
                     {isAdmin ? 'Quản trị viên' : 'Hội viên Pro'}
                   </div>
                 </div>
@@ -165,10 +175,19 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
                     >
                         <div className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border-b border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full translate-x-10 -translate-y-10 pointer-events-none"></div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest relative z-10">Tài khoản quản lý</p>
-                            <p className="text-sm font-black text-white mt-1 truncate relative z-10">{user?.email}</p>
+                            <p className="text-[10px] font-normal text-slate-500 normal-case tracking-normal relative z-10">Tài khoản quản lý</p>
+                            <p className="text-sm font-normal text-white mt-1 truncate relative z-10">{user?.email}</p>
                         </div>
                         <div className="p-3">
+                            <Link to="/live" onClick={() => setShowDropdown(false)} className="sm:hidden flex items-center gap-3 p-3 text-sm text-slate-300 rounded-2xl"><Home size={18}/><span>Bảng phòng trực tiếp</span></Link>
+                            <Link 
+                                to="/my-bookings"
+                                onClick={() => setShowDropdown(false)}
+                                className="w-full flex items-center gap-3 p-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-2xl transition-all cursor-pointer group"
+                            >
+                                <Calendar size={18} className="text-rose-400 group-hover:scale-110 transition-transform" />
+                                <span>Lịch hẹn & Đặt chỗ</span>
+                            </Link>
                             <Link 
                                 to="/favorites"
                                 onClick={() => setShowDropdown(false)}
@@ -184,6 +203,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
                                 <Settings size={18} className="text-slate-500 group-hover:rotate-45 transition-transform" />
                                 <span>Cài đặt tài khoản</span>
                             </button>
+
                             <button 
                                 onClick={logout}
                                 className="w-full flex items-center gap-3 p-3 text-sm text-rose-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-2xl transition-all cursor-pointer"
@@ -198,7 +218,7 @@ const Header = ({ onMenuClick, onOpenSettings }) => {
               </AnimatePresence>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-rose-500 to-orange-500 text-white px-5 sm:px-8 py-3 rounded-2xl text-[10px] sm:text-sm font-black uppercase tracking-widest hover:shadow-xl hover:shadow-rose-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer relative overflow-hidden group">
+            <Link to="/login" className="flex items-center gap-1 sm:gap-2 bg-rose-500 text-white px-5 sm:px-8 py-3 rounded-2xl text-[10px] sm:text-sm font-normal normal-case tracking-normal hover:shadow-xl hover:shadow-rose-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer relative overflow-hidden group">
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
               <User size={16} className="sm:w-[18px] sm:h-[18px] relative z-10" />
               <span className="hidden sm:inline relative z-10">Đăng nhập</span>

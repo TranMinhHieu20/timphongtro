@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import AppErrorBoundary from './components/AppErrorBoundary'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import HomePage from './pages/HomePage'
 import RoomDetail from './pages/RoomDetail'
@@ -13,7 +14,9 @@ import AdminRooms from './pages/AdminRooms'
 import AdminChat from './pages/AdminChat'
 import FavoritesPage from './pages/FavoritesPage'
 import LiveSheetPage from './pages/LiveSheetPage'
+import MyBookingsPage from './pages/MyBookingsPage'
 import { AuthProvider, useAuth } from './context/AuthContext'
+
 import AdminRoute from './components/AdminRoute'
 import { AnimatePresence } from 'framer-motion'
 import PageTransition from './components/PageTransition'
@@ -25,6 +28,12 @@ import GlobalLiveNotification from './components/GlobalLiveNotification'
 import ChatToast from './components/ChatToast'
 import Footer from './components/Footer'
 
+function RouteScroll() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }) }, [pathname])
+  return null
+}
+
 function AppContent() {
   const { user, isAdmin, isAuthenticated } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -32,6 +41,7 @@ function AppContent() {
 
   return (
     <Router>
+      <RouteScroll />
       <div
         className={`min-h-screen bg-slate-950 font-sans antialiased text-slate-100 transition-all duration-500 ${isAdmin ? 'lg:pl-80' : ''}`}
       >
@@ -120,6 +130,15 @@ function AppContent() {
                   </PageTransition>
                 }
               />
+              <Route
+                path="/my-bookings"
+                element={
+                  <PageTransition>
+                    <MyBookingsPage />
+                  </PageTransition>
+                }
+              />
+
 
               {/* Protected Admin Routes */}
               <Route element={<AdminRoute />}>
@@ -172,7 +191,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AppErrorBoundary><AppContent /></AppErrorBoundary>
     </AuthProvider>
   )
 }

@@ -4,6 +4,9 @@ import isAdmin from "../middlewares/isAdmin.js";
 import { 
     createOrUpdateLead, 
     getUserLeadForRoom, 
+    getMyBookings,
+    cancelMyBooking,
+    getRoomStats,
     getLeads, 
     getPendingCount,
     updateLeadStatus,
@@ -17,9 +20,12 @@ const router = express.Router();
 // Public routes
 router.get("/success-stories", getSuccessStories);
 router.get("/stats", getGlobalStats);
+router.get("/room-stats/:roomId", getRoomStats);
 
 // User routes
 router.post("/", protectRoute, createOrUpdateLead);
+router.get("/my-bookings", protectRoute, getMyBookings);
+router.patch("/my-bookings/:id/cancel", protectRoute, cancelMyBooking);
 router.get("/my-lead/:roomId", protectRoute, getUserLeadForRoom);
 
 // Admin routes
@@ -29,3 +35,4 @@ router.patch("/admin/:id/status", protectRoute, isAdmin, updateLeadStatus);
 router.delete("/admin/:id", protectRoute, isAdmin, deleteLead);
 
 export default router;
+

@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { roomService, leadService, userService } from '../services/api';
-import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw, Sparkles, Heart, Video, Maximize, X, ChevronRight, Play, ChevronDown } from 'lucide-react';
+import { MapPin, Zap, ChevronLeft, AlertCircle, Phone, MessageCircle, User, Loader2, RefreshCcw, Sparkles, Heart, Video, Maximize, X, ChevronRight, Play, ChevronDown, Calendar, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import RoomCard from '../components/RoomCard';
+import BookingModal from '../components/BookingModal';
+import RoomMap from '../components/RoomMap';
+import RoomCostEstimator from '../components/RoomCostEstimator';
+import { bookingStatusLabel } from '../services/bookingStatus';
+
 
 const RoomDetail = () => {
   const { id } = useParams();
@@ -40,9 +45,24 @@ const RoomDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadingFav, setLoadingFav] = useState(false);
 
+  // New Booking & Reservation states
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookingModalTab, setBookingModalTab] = useState('viewing');
+  const [myLead, setMyLead] = useState(null);
+  const [roomStats, setRoomStats] = useState({ hasActiveReservation: false, recentViewingsCount: 0 });
+
   const { user, isAdmin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const openBookingModal = (tab = 'viewing') => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    setBookingModalTab(tab);
+    setIsBookingModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchRoom = async () => {
@@ -61,9 +81,12 @@ const RoomDetail = () => {
         try {
           const res = await leadService.getMyLeadForRoom(id);
           if (res.data) {
+            setMyLead(res.data);
             setCustomerPhone(res.data.customerPhone || '');
             setAppointment(res.data.appointment || '');
             setBookingStep('finished');
+          } else {
+            setMyLead(null);
           }
         } catch {}
 
@@ -74,8 +97,17 @@ const RoomDetail = () => {
       }
     };
 
+    const fetchStats = async () => {
+      try {
+        const res = await leadService.getRoomStats(id);
+        if (res.data) setRoomStats(res.data);
+      } catch {}
+    };
+
     fetchRoom();
     fetchLead();
+    fetchStats();
+
 
     // Fetch related rooms
     roomService.getAll({}).then(res => {
@@ -299,6 +331,9 @@ const RoomDetail = () => {
               <span className="text-lg font-bold">{room.address}</span>
             </div>
 
+            <RoomMap room={room} />
+            <RoomCostEstimator key={room._id} room={room} />
+
             {/* Mô tả */}
             {room.description && (
               <div className="space-y-3">
@@ -381,6 +416,8 @@ const RoomDetail = () => {
             <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
                 <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Giá thuê</span>
+                <a href="#room-cost-estimate" className="block text-sm font-light text-rose-400 underline underline-offset-4 mt-2">Tính tổng chi phí khi thuê</a>
+                <a href="#room-map" className="block text-sm font-light text-slate-400 underline underline-offset-4 mt-2">Xem vị trí và chỉ đường</a>
                 <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter">
                     {(room.price / 1_000_000).toFixed(1)}tr
@@ -412,108 +449,123 @@ const RoomDetail = () => {
                 </button>
             </div>
 
-            {/* Cashback */}
-            {room.cashbackAmount > 0 && (
-              <div className="bg-emerald-500 p-6 rounded-[2rem] space-y-4 shadow-xl shadow-emerald-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-10">
-                  <Zap size={80} fill="white" />
-                </div>
-                <div className="relative flex items-center gap-3">
-                  <div className="bg-white/30 p-2.5 rounded-xl">
-                    <Zap size={20} className="text-white" fill="white" />
-                  </div>
-                  <div>
-                    <p className="text-white font-black text-base uppercase tracking-tight leading-none">TIỀN HOÀN TRẢ</p>
-                    <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mt-0.5">Nhận ngay khi ký HĐ</p>
-                  </div>
-                </div>
-                <div className="relative text-3xl font-black text-white tracking-tighter">
-                  {formatCurrency(room.cashbackAmount)}
-                </div>
-                <p className="relative text-[10px] text-white/70 leading-relaxed font-medium">
-                  (*) Trao tiền mặt hoặc chuyển khoản ngay khi ký biên bản thuê phòng qua hệ thống.
-                </p>
-              </div>
-            )}
-
-            {/* CTA buttons */}
-            <div className="space-y-3">
-              <a href='https://www.facebook.com/hieutm04' target='_blank' className='flex'>
-                <button className="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-black py-4 rounded-[1.5rem] transition-all shadow-xl shadow-rose-500/20 flex items-center justify-center gap-3 cursor-pointer">
-                  <MessageCircle size={20} fill="white" />
-                  Messenger Tư Vấn
-                </button>
-              </a>
-
-              {bookingStep === 'idle' && (
-                <button
-                  onClick={() => !isAuthenticated ? navigate('/login', { state: { from: location.pathname } }) : setBookingStep('form')}
-                  className="w-full bg-white/5 hover:bg-white/10 active:scale-95 text-white font-black py-4 rounded-[1.5rem] border border-white/10 transition-all flex items-center justify-center gap-3 cursor-pointer"
-                >
-                  <Phone size={20} className="text-emerald-500" />
-                  Đặt lịch xem phòng
-                </button>
-              )}
-
-              {bookingStep === 'form' && (
-                <form onSubmit={handleBooking} className="bg-white/5 p-5 rounded-[1.5rem] border border-white/10 space-y-4 animate-in fade-in zoom-in duration-300">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">SĐT của bạn</label>
-                    <input
-                      type="tel" required placeholder="09xx xxx xxx"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-bold"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Thời gian xem phòng</label>
-                    <input
-                      type="text" placeholder="Ví dụ: giờ xem, ngày/tháng"
-                      value={appointment}
-                      onChange={(e) => setAppointment(e.target.value)}
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-bold"
-                    />
-                  </div>
-                  <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl transition-all shadow-lg cursor-pointer">
-                    Xác nhận
-                  </button>
-                </form>
-              )}
-
-              {bookingStep === 'waiting' && (
-                <div className="flex items-center justify-center gap-3 py-8 animate-pulse">
-                  <Loader2 className="animate-spin text-rose-500" size={24} />
-                  <span className="text-white font-black text-xs uppercase tracking-widest">Đợi tí...</span>
+            {/* Social Proof & Urgency */}
+            <div className="space-y-2">
+              {roomStats.hasActiveReservation && (
+                <div className="flex items-center gap-2.5 p-3.5 bg-amber-500/10 border border-amber-500/25 text-amber-300 rounded-2xl text-xs font-bold animate-pulse">
+                  <ShieldCheck size={18} className="shrink-0 text-amber-400" />
+                  <span>Đang có khách giữ phòng này (ưu tiên xem trước trong 24h)</span>
                 </div>
               )}
-
-              {bookingStep === 'finished' && (
-                <div className="space-y-3 animate-in slide-in-from-bottom duration-500">
-                  <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-emerald-500/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center">
-                        <User size={12} className="text-white" />
-                      </div>
-                      <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Hỗ trợ tìm phòng</span>
-                    </div>
-                    <p className="text-slate-200 font-bold text-sm leading-relaxed">
-                      Đã nhận yêu cầu từ <span className="text-white">{customerPhone}</span> 🌹<br />
-                      Hỗ trợ viên sẽ sớm liên hệ lại qua Zalo!
-                    </p>
-                    {appointment && (
-                      <p className="text-slate-400 text-xs font-bold mt-2">📅 Lịch hẹn: {appointment}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setBookingStep('form')}
-                    className="w-full bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase py-3 rounded-xl border border-white/10 transition-all tracking-widest cursor-pointer"
-                  >
-                    Chỉnh sửa
-                  </button>
+              {roomStats.recentViewingsCount > 0 && (
+                <div className="flex items-center gap-2.5 p-3 bg-white/5 border border-white/10 text-slate-300 rounded-2xl text-xs font-semibold">
+                  <Sparkles size={16} className="text-rose-400 shrink-0" />
+                  <span>🔥 Có <strong className="text-white">{roomStats.recentViewingsCount} khách</strong> đã hẹn xem trong tuần này</span>
                 </div>
               )}
             </div>
+
+            {/* CTA buttons */}
+            <div className="space-y-3 pt-1">
+              {/* If user already booked */}
+              {myLead && myLead.status !== 'cancelled' ? (
+                <div className="p-5 rounded-[1.75rem] bg-gradient-to-br from-slate-900 to-slate-800 border border-emerald-500/30 space-y-3 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400">
+                      <CheckCircle2 size={16} />
+                      {myLead.type === 'reservation' ? 'Đã yêu cầu giữ chỗ' : 'Đã đăng ký hẹn xem'}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                      {bookingStatusLabel(myLead)}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                    Hệ thống đã ghi nhận yêu cầu từ SĐT <strong className="text-white">{myLead.customerPhone}</strong>.
+                    {myLead.appointment && <span className="block text-slate-400 mt-1">📅 {myLead.appointment}</span>}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => openBookingModal(myLead.type || 'viewing')}
+                      className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer text-center"
+                    >
+                      Đổi thông tin
+                    </button>
+                    <button
+                      onClick={() => navigate('/my-bookings')}
+                      className="py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer text-center"
+                    >
+                      Lịch của tôi ➔
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Button 1: Viewing */}
+                  <button
+                    onClick={() => openBookingModal('viewing')}
+                    className="w-full bg-gradient-to-r from-rose-500 via-rose-600 to-orange-500 hover:shadow-2xl hover:shadow-rose-500/30 active:scale-[0.98] text-white font-black py-4 px-6 rounded-[1.5rem] transition-all flex items-center justify-between cursor-pointer group shadow-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/20 rounded-xl group-hover:scale-110 transition-transform">
+                        <Calendar size={20} />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-black uppercase tracking-wide">Đặt lịch xem phòng</div>
+                        <div className="text-[10px] text-white/80 font-bold">Trực tiếp hoặc Video call 1-1 (Free)</div>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  {/* Button 2: Reservation / Pre-booking */}
+                  <button
+                    onClick={() => openBookingModal('reservation')}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:shadow-2xl hover:shadow-emerald-500/30 active:scale-[0.98] text-white font-black py-4 px-6 rounded-[1.5rem] transition-all flex items-center justify-between cursor-pointer group shadow-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/20 rounded-xl group-hover:scale-110 transition-transform">
+                        <ShieldCheck size={20} />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-black uppercase tracking-wide">Đặt cọc giữ phòng trước</div>
+                        <div className="text-[10px] text-white/80 font-bold">Khóa phòng 24h • Hoàn 100% nếu sai mô tả</div>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </>
+              )}
+
+              {/* Consultation Messenger & Hotline */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <a 
+                  href="https://www.facebook.com/hieutm04" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-full"
+                >
+                  <button className="w-full bg-white/5 hover:bg-white/10 active:scale-95 text-slate-200 hover:text-white font-bold py-3 px-3 rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs">
+                    <MessageCircle size={16} className="text-rose-500" />
+                    <span>Messenger</span>
+                  </button>
+                </a>
+
+                <a 
+                  href="https://zalo.me/0981999999" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-full"
+                >
+                  <button className="w-full bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 text-blue-300 font-bold py-3 px-3 rounded-2xl border border-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs">
+                    <Phone size={16} />
+                    <span>Chat Zalo</span>
+                  </button>
+                </a>
+              </div>
+            </div>
+
 
             <div className="text-center text-[9px] text-slate-600 font-black uppercase tracking-widest pt-2 border-t border-white/5">
               Hieu Affiliate Team · Hanoi 2026
@@ -719,8 +771,21 @@ const RoomDetail = () => {
           </div>
         );
       })()}
+
+      {/* Booking & Reservation Modal */}
+      <BookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        room={room}
+        initialTab={bookingModalTab}
+        onSuccess={(lead) => {
+          setMyLead(lead);
+          setBookingStep('finished');
+        }}
+      />
     </div>
   );
 };
 
 export default RoomDetail;
+

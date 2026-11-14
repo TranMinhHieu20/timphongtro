@@ -63,13 +63,14 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
   const isAvailable = room.status !== 'rented'
 
   return (
-    <Link to={`/room/${room._id}`} className="block group">
+    <Link to={`/room/${room._id}`} className="block group rental-card">
       <div className="bg-slate-900 border border-white/5 rounded-2xl md:rounded-[2rem] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-rose-500/30 h-full flex flex-col">
         {/* ── Image Section ─────────────────────────────────────────────────── */}
-        <div className="relative aspect-[3/4] md:aspect-[4/5] overflow-hidden bg-slate-800 shrink-0">
+        <div className="room-media relative aspect-[4/3] overflow-hidden bg-slate-800 shrink-0">
           {room.images && room.images.length > 0 ? (
             <img
               src={room.images[0]}
+              loading="lazy"
               alt={room.address}
               className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${!isAvailable ? 'grayscale opacity-50' : ''}`}
             />
@@ -93,8 +94,8 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           {/* Rented overlay */}
           {!isAvailable && (
             <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center p-2">
-              <span className="bg-slate-950/80 text-rose-500 text-[9px] md:text-[10px] font-black px-3 py-1.5 rounded-full border border-rose-500/30 uppercase tracking-[0.15em] shadow-2xl backdrop-blur-md">
-                HẾT PHÒNG
+              <span className="bg-slate-950/80 text-rose-500 text-[9px] md:text-[10px] font-normal px-3 py-1.5 rounded-full border border-rose-500/30 normal-case tracking-normal shadow-2xl backdrop-blur-md">
+                Đã cho thuê
               </span>
             </div>
           )}
@@ -105,7 +106,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                onCompareToggle(room)
+                onCompareToggle?.(room)
               }}
               title={isSelected ? 'Đang so sánh' : 'So sánh'}
               className={`flex items-center gap-1.5 px-2 py-1.5 md:px-3 md:py-1.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${isSelected ? 'bg-emerald-500 border-emerald-400 shadow-xl' : 'bg-slate-950/50 border-white/10 hover:bg-white/10'}`}
@@ -115,7 +116,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
                 className={isSelected ? 'text-white' : 'text-slate-400'}
               />
               <span
-                className={`hidden md:inline text-[9px] font-black uppercase tracking-widest ${isSelected ? 'text-white' : 'text-slate-400'}`}
+                className={`hidden md:inline text-[9px] font-normal normal-case tracking-normal ${isSelected ? 'text-white' : 'text-slate-400'}`}
               >
                 {isSelected ? 'Đang so sánh' : 'So sánh'}
               </span>
@@ -126,6 +127,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           <div className="absolute top-2 right-2 md:top-5 md:right-5 flex flex-col items-end gap-1.5 z-10">
             {/* Favorite button */}
             <button
+              aria-label={isFavorite ? 'Bỏ lưu phòng' : 'Lưu phòng yêu thích'}
               onClick={toggleFav}
               className={`p-1.5 md:p-3 rounded-full backdrop-blur-xl border-2 transition-all duration-300 cursor-pointer ${
                 isFavorite
@@ -150,14 +152,14 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
 
             {/* Display ID badge */}
             {room.displayId && (
-              <span className="bg-rose-500/90 backdrop-blur-md text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 md:px-3 md:py-1.5 rounded-full shadow-lg tracking-widest uppercase">
+              <span className="bg-rose-500/90 backdrop-blur-md text-white text-[8px] md:text-[10px] font-normal px-2 py-0.5 md:px-3 md:py-1.5 rounded-full shadow-lg tracking-normal normal-case">
                 #{room.displayId}
               </span>
             )}
 
             {/* Admin code — desktop and mobile */}
 
-            <span className="md:inline bg-slate-950/70 backdrop-blur-md text-slate-400 text-[9px] font-mono px-2.5 py-1 rounded-full border border-white/10 tracking-[0.1em]">
+            <span className="md:inline bg-slate-950/70 backdrop-blur-md text-slate-400 text-[9px] font-mono px-2.5 py-1 rounded-full border border-white/10 tracking-normal">
               {isAdmin && `${room.code?.toUpperCase()} ·`}
               {room.roomNumber ? ` ${room.roomNumber.toUpperCase()}` : ''}
             </span>
@@ -171,7 +173,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
               </div>
               <div className="hidden md:flex absolute top-16 left-5 items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-md border border-emerald-400/50 text-white shadow-lg z-10">
                 <Video size={10} />
-                <span className="text-[8px] font-black uppercase tracking-widest">
+                <span className="text-[8px] font-normal normal-case tracking-normal">
                   Video thực tế
                 </span>
               </div>
@@ -197,15 +199,15 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
                     <Zap size={16} className="text-white" fill="white" />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
-                      TIỀN HOÀN TRẢ
+                    <p className="text-white text-[9px] font-normal normal-case tracking-normal leading-none">
+                      Hoàn tiền
                     </p>
-                    <p className="text-white/70 text-[8px] font-medium leading-none">
+                    <p className="text-white/70 text-[8px] font-normal leading-none">
                       Nhận ngay khi ký HĐ
                     </p>
                   </div>
                 </div>
-                <span className="text-white font-black text-xl tracking-tight">
+                <span className="text-white font-normal text-xl tracking-normal">
                   {formatCurrency(room.cashbackAmount)}
                 </span>
               </div>
@@ -213,11 +215,11 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
               <div className="flex md:hidden items-center justify-between bg-emerald-500/85 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-emerald-400/40 shadow-lg">
                 <div className="flex items-center gap-1">
                   <Zap size={9} className="text-white shrink-0" fill="white" />
-                  <span className="text-white text-[8px] font-black uppercase leading-none">
+                  <span className="text-white text-[8px] font-normal normal-case leading-none">
                     Hoàn
                   </span>
                 </div>
-                <span className="text-white font-black text-[9px] tracking-tight">
+                <span className="text-white font-normal text-[9px] tracking-normal">
                   {formatCurrency(room.cashbackAmount)}
                 </span>
               </div>
@@ -231,13 +233,13 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           <div className="flex items-start gap-1 text-green-500">
             <MapPin size={10} className="shrink-0 mt-0.5 md:hidden" />
             <MapPin size={14} className="shrink-0 mt-0.5 hidden md:block" />
-            <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider line-clamp-2 md:line-clamp-1">
+            <span className="text-[10px] md:text-[11px] font-normal normal-case tracking-normal line-clamp-2 md:line-clamp-1">
               {room.address}
             </span>
           </div>
 
           {/* Description / Room name */}
-          <h3 className="text-[11px] md:text-xl font-black text-white leading-snug group-hover:text-rose-400 transition-colors line-clamp-2">
+          <h3 className="text-[11px] md:text-xl font-normal text-white leading-snug group-hover:text-rose-400 transition-colors line-clamp-2">
             {room.description?.split('\n').find((l) => l.trim()) ||
               (room.roomNumber
                 ? `Phòng ${room.roomNumber}`
@@ -247,7 +249,7 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           {/* Availability badge — mobile only */}
           {room.availability && (
             <span
-              className={`md:hidden inline-block text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wide ${availColor}`}
+              className={`md:hidden inline-block text-[10px] font-normal px-2 py-0.5 rounded normal-case tracking-wide ${availColor}`}
             >
               {room.availability}
             </span>
@@ -256,21 +258,26 @@ const RoomCard = ({ room, onCompareToggle, isSelected, onFavoriteToggle }) => {
           {/* Price row */}
           <div className="flex items-center justify-between pt-2 md:pt-5 border-t border-white/5 mt-auto">
             <div className="flex items-baseline gap-1 md:gap-1.5">
-              <span className="text-base md:text-2xl font-black text-white">
+              <span className="text-base md:text-2xl font-normal text-white">
                 {formatPrice(room.price)}
               </span>
-              <span className="text-[8px] md:text-xs text-slate-500 font-bold uppercase tracking-widest">
+              <span className="text-[8px] md:text-xs text-slate-500 font-normal normal-case tracking-normal">
                 /th
               </span>
             </div>
-            {/* Availability badge — desktop (also shown in image overlay) */}
-            {room.availability && (
+            {/* Availability / Pre-booking badge — desktop */}
+            {room.status === 'coming-soon' ? (
+              <span className="text-[9px] md:text-[10px] font-normal px-2.5 py-1 rounded-md normal-case tracking-normal bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-lg flex items-center gap-1">
+                🔒 Nhận đặt trước
+              </span>
+            ) : room.availability ? (
               <span
-                className={`hidden md:inline text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow-lg ${availColor}`}
+                className={`hidden md:inline text-[10px] font-normal px-2.5 py-1 rounded-md normal-case tracking-normal shadow-lg ${availColor}`}
               >
                 {room.availability}
               </span>
-            )}
+            ) : null}
+
           </div>
         </div>
       </div>

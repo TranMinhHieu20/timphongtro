@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --font-main: 'Outfit', sans-serif;
+  --font-main: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  --font-sans: var(--font-main);
 }
 
 body {
@@ -21,3 +22,12 @@ body {
     @apply bg-white/10 rounded-full hover:bg-white/20;
   }
 }
+/* One typeface for Vietnamese text, navigation and form controls. */
+@theme {
+  --font-sans: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+}
+body { font-size: 14px; line-height: 1.65; }
+button, input, select, textarea { font-family: inherit; }
+h1, h2, h3, h4 { text-wrap: balance; }
+
+body { font-weight: 300; }

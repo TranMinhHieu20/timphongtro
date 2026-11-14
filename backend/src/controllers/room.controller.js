@@ -1,4 +1,5 @@
 import Room from "../modules/Room.js";
+import { resolveRoomUpdate } from "../lib/roomFinancials.js";
 import { parseZaloText, parsePriceValue } from "../lib/zaloParser.js";
 import { uploadImage, uploadVideo } from "../lib/cloudinary.js";
 import xlsx from "xlsx";
@@ -22,19 +23,6 @@ const generateDisplayId = async () => {
     }
     // Fallback: 4-digit suffix
     return `${rndLetter()}${rndLetter()}-${Math.floor(Math.random() * 9000) + 1000}`;
-};
-
-/**
- * Auto-calculate all financial fields from price and commissionRate.
- *   cashbackAmount  = price × 9%          (hoàn tiền cho khách)
- *   totalCommission = price × commissionRate%  (tổng hoa hồng)
- *   netProfit       = totalCommission – cashbackAmount
- */
-const calcFinancials = (price, commissionRate = 0) => {
-    const cashbackAmount  = Math.round(price * 0.09);
-    const totalCommission = Math.round(price * commissionRate / 100);
-    const netProfit       = totalCommission - cashbackAmount;
-    return { cashbackAmount, totalCommission, netProfit };
 };
 
 /**
@@ -289,14 +277,15 @@ export const importExcelRooms = async (req, res) => {
                 }
 
                 const price = parsePriceValue(priceRaw);
-                if (!price || isNaN(price)) {
+                if (!Number.isFinite(price) || price <= 0) {
                     throw new Error(`Giá không hợp lệ cho mã ${code}: "${priceRaw}"`);
                 }
 
                 // ─ Commission
                 const commissionRaw = String(getCellValue(row, ["Hoa hồng", "Hoa hong", "Commission", "HH"]) || "").trim();
-                const rateMatch = commissionRaw.match(/(\d+(?:\.\d+)?)\s*%/);
-                const commissionRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+                const rateMatch = commissionRaw.match(/(\d+(?:[.,]\d+)?)\s*%/);
+                const commissionRate = rateMatch ? Number(rateMatch[1].replace(",", ".")) : (/^\d+(?:[.,]\d+)?$/.test(commissionRaw) ? Number(commissionRaw.replace(",", ".")) : 0);
+                if (commissionRate < 0 || commissionRate > 100) throw new Error(`Hoa hồng không hợp lệ cho mã ${code}`);
 
                 // ─ Status
                 const statusRaw = String(getCellValue(row, ["Trạng thái", "Status", "Vào ở"]) || "").trim();
@@ -402,16 +391,10 @@ export const updateRoomStatus = async (req, res) => {
 // UPDATE ROOM (GENERAL) — recalculates financials if price/commission changes
 export const updateRoom = async (req, res) => {
     try {
-        const updateData = { ...req.body };
-
-        if (updateData.price !== undefined || updateData.commissionRate !== undefined) {
-            const existing = await Room.findById(req.params.id);
-            const price = updateData.price ?? existing?.price ?? 0;
-            const commissionRate = updateData.commissionRate ?? existing?.commissionRate ?? 0;
-            Object.assign(updateData, calcFinancials(price, commissionRate));
-        }
-
-        const room = await Room.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        const existing = await Room.findById(req.params.id);
+        if (!existing) return res.status(404).json({ message: "Không tìm thấy phòng" });
+        const updateData = resolveRoomUpdate(req.body, existing);
+        const room = await Room.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
         if (!room) return res.status(404).json({ message: "Không tìm thấy phòng" });
 
         // Emit realtime event
@@ -419,7 +402,7 @@ export const updateRoom = async (req, res) => {
 
         res.status(200).json({ message: "Cập nhật thành công", room });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || (error.name === "ValidationError" || error.name === "CastError" ? 400 : 500)).json({ message: error.message });
     }
 };
 

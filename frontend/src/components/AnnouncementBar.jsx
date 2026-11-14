@@ -112,7 +112,7 @@ const AnnouncementBar = () => {
         {allMessages.map((msg, i) => (
           <div
             key={`msg-${i}`}
-            className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em]"
+            className="flex items-center gap-3 text-[10px] font-normal normal-case tracking-normal"
           >
             <msg.Icon
               size={14}
@@ -123,8 +123,8 @@ const AnnouncementBar = () => {
             <span
               className={
                 msg.Icon === CheckCircle
-                  ? 'text-white font-black'
-                  : 'opacity-90 font-bold'
+                  ? 'text-white font-normal'
+                  : 'opacity-90 font-normal'
               }
             >
               {msg.text}
@@ -136,7 +136,7 @@ const AnnouncementBar = () => {
         {allMessages.map((msg, i) => (
           <div
             key={`dup-${i}`}
-            className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em]"
+            className="flex items-center gap-3 text-[10px] font-normal normal-case tracking-normal"
           >
             <msg.Icon
               size={14}
@@ -147,8 +147,8 @@ const AnnouncementBar = () => {
             <span
               className={
                 msg.Icon === CheckCircle
-                  ? 'text-white font-black'
-                  : 'opacity-90 font-bold'
+                  ? 'text-white font-normal'
+                  : 'opacity-90 font-normal'
               }
             >
               {msg.text}

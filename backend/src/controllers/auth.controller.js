@@ -6,7 +6,8 @@ import { sendPasswordResetEmail } from '../services/emailService.js';
 // REGISTER USER
 export const registerUser = async (req, res)=>{
     try {
-        const {username, email, password, role} = req.body
+        const {username, email, password} = req.body
+        const role = "user"
         if(!username || !email || !password){
             return res.status(400).json({message: "All fields are required"})
         }
@@ -30,7 +31,7 @@ export const registerUser = async (req, res)=>{
             _id: newUser._id,
             username: newUser.username,
             email: newUser.email, 
-            role: role,
+            role: newUser.role,
             avatar: newUser.avatar,
             favorites: newUser.favorites || []
         }})
