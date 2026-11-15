@@ -9,6 +9,7 @@ import BookingModal from '../components/BookingModal';
 import RoomMap from '../components/RoomMap';
 import RoomCostEstimator from '../components/RoomCostEstimator';
 import { bookingStatusLabel } from '../services/bookingStatus';
+import { ZALO_URL } from '../services/contact';
 
 
 const RoomDetail = () => {
@@ -553,7 +554,7 @@ const RoomDetail = () => {
                 </a>
 
                 <a 
-                  href="https://zalo.me/0981999999" 
+                  href={ZALO_URL} 
                   target="_blank" 
                   rel="noreferrer"
                   className="w-full"

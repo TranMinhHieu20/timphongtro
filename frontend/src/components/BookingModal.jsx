@@ -9,6 +9,7 @@ import { leadService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { bookingStatusLabel } from '../services/bookingStatus';
+import { PAYMENT_ACCOUNT } from '../services/contact';
 
 const BookingModal = ({ isOpen, onClose, room, initialTab = 'viewing', onSuccess }) => {
   const { user, isAuthenticated } = useAuth();
@@ -84,9 +85,9 @@ const BookingModal = ({ isOpen, onClose, room, initialTab = 'viewing', onSuccess
   const formatCurrency = (val) => Number(val || 0).toLocaleString('vi-VN') + '₫';
 
   // Bank Info for VietQR
-  const BANK_ID = 'MB'; // MBBank
-  const ACCOUNT_NO = '0981999999'; // Số tài khoản mẫu / affiliate
-  const ACCOUNT_NAME = 'TRAN MINH HIEU';
+  const BANK_ID = PAYMENT_ACCOUNT.bankId;
+  const ACCOUNT_NO = PAYMENT_ACCOUNT.accountNo;
+  const ACCOUNT_NAME = PAYMENT_ACCOUNT.accountName;
   const qrTransferContent = `TP ${room.code || room.displayId} ${customerPhone ? customerPhone.slice(-4) : 'COC'}`;
   const vietQrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(qrTransferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
@@ -559,13 +560,13 @@ const BookingModal = ({ isOpen, onClose, room, initialTab = 'viewing', onSuccess
                       <div className="p-4 bg-slate-950/70 border border-white/10 rounded-2xl space-y-4">
                         <div className="flex flex-col sm:flex-row items-center gap-4">
                           <div className="bg-white p-2 rounded-xl shrink-0 shadow-lg">
-                            <img src={vietQrUrl} alt="VietQR" className="w-32 h-32 object-contain" />
+                            <a href={PAYMENT_ACCOUNT.originalQr} target="_blank" rel="noopener noreferrer" title="Mở mã QR gốc"><img src={vietQrUrl} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = PAYMENT_ACCOUNT.originalQr; }} alt="VietQR VPBank - TRAN MINH HIEU - 0398935034" className="w-48 h-64 object-contain" /></a>
                           </div>
                           <div className="space-y-2 text-xs text-slate-300 flex-1">
                             <div>
                               <span className="text-slate-500 block text-[10px] uppercase font-bold">Ngân hàng & Số tài khoản</span>
                               <div className="flex items-center gap-2 font-mono font-bold text-white text-sm">
-                                <span>MBBank: {ACCOUNT_NO}</span>
+                                <span>{PAYMENT_ACCOUNT.bankName}: {ACCOUNT_NO}</span>
                                 <button 
                                   type="button" 
                                   onClick={() => handleCopy(ACCOUNT_NO)}
